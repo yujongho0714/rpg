@@ -1,5 +1,5 @@
 /* 정도 RPG 오프라인 — 한 번 열면 저장돼서 인터넷 없이도 열려요. 게임 파일을 고치면 VERSION을 하나 올려 주세요. */
-const VERSION = 'rpg-v33';
+const VERSION = 'rpg-v34';
 const CACHE = 'jd-rpg-' + VERSION, ART = 'jd-dlx-3', BIG = 'jd-rpg-art-1', WG = 'jd-rpg-wg-1', MOC = 'jd-rpg-mo-2';   /* [v28] 모션 팩(mo-*.json)은 따로 저장: 폰에 남은 옛 사본이 새 목록과 어긋나 엉뚱한 그림(열기구·다른 캐릭터)이 나오던 문제 */
 const FONT = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const MUS = Array.from({ length: 10 }, (_, i) => 'bgm-' + ('0' + (i * 5 + 1)).slice(-2) + '-' + ('0' + (i * 5 + 5)).slice(-2) + '.mp3');

@@ -52,8 +52,8 @@ function sparks(x, y, z, n, col, sp){ n = Math.round(n * FK('fxSpark')); for(let
 function dust(x, z, n, sp){ for(let i = 0; i < n; i++) PT.push({ k:'dust', x:x + rnd(-14, 14), y:rnd(2, 10), z:z + rnd(-6, 6), vx:rnd(-1, 1) * (sp || 60), vy:rnd(10, 40), vz:rnd(-20, 20), g:0, t:0, life:rnd(.35, .6), col:'#e8dcc0', r:rnd(5, 10) }); }
 function chunks(x, y, z, n, col){ for(let i = 0; i < n; i++) PT.push({ k:'chunk', x, y, z, vx:rnd(-1, 1) * 380, vy:rnd(260, 620), vz:rnd(-120, 120), g:-1500, t:0, life:rnd(.5, .9), col:col || '#c9b', r:rnd(3, 6), rot:rnd(0, 6), vr:rnd(-12, 12) }); }
 function ring(x, z, col, r1){ PT.push({ k:'ring', x, y:2, z, t:0, life:.3, col:col || '#fff', r1:r1 || 90 }); }
-function num(x, y, z, v, kind){ const crit = kind === 'crit', big = kind === 'big';
-  DN.push({ x:x + rnd(-14, 14), y, z, vx:rnd(-40, 40), vy:crit || big ? 420 : 340, t:0, txt:(kind === 'hurt' ? '-' : '') + fmt(v), col:kind === 'hurt' ? '#ff6b6b' : crit ? '#ffd34d' : big ? '#ff9a3c' : kind === 'cp' ? '#8ff3e0' : '#ffffff', sz:crit ? 40 : big ? 46 : kind === 'cp' ? 22 : 28, crit:crit || big }); }
+function num(x, y, z, v, kind){ const sup = kind === 'sup', crit = kind === 'crit' || sup, big = kind === 'big';
+  DN.push({ x:x + rnd(-14, 14), y, z, vx:rnd(-40, 40), vy:crit || big ? 420 : 340, t:0, txt:(kind === 'hurt' ? '-' : '') + fmt(v), col:kind === 'hurt' ? '#ff6b6b' : sup ? '#ff6bf0' : crit ? '#ffd34d' : big ? '#ff9a3c' : kind === 'cp' ? '#8ff3e0' : '#ffffff', sz:sup ? 52 : crit ? 40 : big ? 46 : kind === 'cp' ? 22 : 28, crit:crit || big, sup }); }
 function label(x, y, z, txt, col, sz){ DN.push({ x, y, z, vx:0, vy:120, t:0, txt, col, sz:sz || 22, lab:true }); }
 J.label = label;
 function fx(name, x, y, z, o){ const f = J.FX[name]; if(!f) return null; o = o || {}; if(!f.tex) f.tex = W.tex(f.im);
@@ -107,7 +107,7 @@ let respawnT = 0;
 function hurtMon(m, dmg, o){ if(m.st === 'dead') return; o = o || {};
   if(m.broken > 0) dmg = Math.round(dmg * 1.5);
   if(G.admin.one) dmg = Math.max(dmg, m.hp);
-  if(m.shMax && m.broken <= 0 && m.st !== 'spawn'){ m.sp -= (o.kind === 'crit' || o.kind === 'big') ? 2 : 1; m.shHit = .25; if(m.sp <= 0){ m.sp = 0; breakMon(m); } }
+  if(m.shMax && m.broken <= 0 && m.st !== 'spawn'){ m.sp -= (o.kind === 'crit' || o.kind === 'sup' || o.kind === 'big') ? (o.kind === 'sup' ? 3 : 2) : 1; m.shHit = .25; if(m.sp <= 0){ m.sp = 0; breakMon(m); } }
   m.hp -= dmg; m.flash = .09; m.shk = .12; m.hbT = 1.4; m.aggro = true; G.combo++; G.comboT = 2.2; J.target = m;
   const dir = o.dir || (m.x >= H.x ? 1 : -1), wall = (dir > 0 ? m.x > W.L - 80 : m.x < 80) ? .2 : 1, kb = (o.kb || 220) * (m.boss ? .1 : 1) * wall;
   m.vx += dir * kb;
@@ -143,7 +143,10 @@ function killMon(m, o){
 J.fallbackReward = async function(g, c){ const v = Number(await J.kget('gold')) || 0; await J.kset('gold', v + g); const cb = (await J.kget('cube')) || {}; Object.keys(c).forEach(k => cb[k] = (cb[k] || 0) + (c[k] || 0)); await J.kset('cube', cb); };
 
 /* ===== 영웅 ===== */
-function heroDmg(mul){ const s = J.stats(), cr = Math.random() < .15 + (s.crit || 0) / 100; return { d:Math.max(1, Math.round(s.atk * mul * (cr ? 1.5 : 1) * rnd(.9, 1.1))), cr }; }
+/* [rpg-v34] 치명타·극치명타: 끝말잇기 쪽 LOOT.critRoll 과 같은 계산 (기본 15% · 도감 치명 · 전직 · 각성 · 세트로 올라가요) */
+function heroDmg(mul){ const s = J.stats(); let cr, sup = false, k = 1.5;
+  try{ if(J.L && J.L.critRoll){ const r = J.L.critRoll({}); cr = r.cr; sup = r.sup; if(cr) k = r.mul; } else cr = Math.random() < .15 + (s.crit || 0) / 100; }catch(_){ cr = Math.random() < .15 + (s.crit || 0) / 100; }
+  return { d:Math.max(1, Math.round(s.atk * mul * (cr ? k : 1) * rnd(.9, 1.1))), cr, sup }; }
 function inFront(m, reach, depth){ const dx = (m.x - H.x) * H.face; return dx > -20 - m.r * .3 && dx < reach + m.r && Math.abs(m.z - H.z) < depth; }
 function alive(m){ return m.st !== 'dead' && m.st !== 'spawn'; }
 function canAct(){ return H.st === 'idle' || H.st === 'walk'; }
@@ -156,7 +159,7 @@ J.doAttack = function(){ if(G.over) return; if(H.st === 'atk'){ if(H.t > .1) H.q
 function strike(){ const a = ATK[H.ci], mul = C().combo[H.ci]; let any = false, crit = false;
   for(const m of MON){ if(!alive(m) || H.hitSet.has(m) || !inFront(m, a.reach, a.depth)) continue;
     H.hitSet.add(m); const h = heroDmg(mul); any = true; crit = crit || h.cr;
-    hurtMon(m, h.d, { dir:H.face, kb:a.kb, launch:a.launch, kind:h.cr ? 'crit' : 'n', stagger:H.ci === 2 });
+    hurtMon(m, h.d, { dir:H.face, kb:a.kb, launch:a.launch, kind:h.sup ? 'sup' : h.cr ? 'crit' : 'n', stagger:H.ci === 2 });
     sparks(m.x - H.face * m.r * .4, m.y + m.h * .5, m.z, h.cr ? 16 : 9, h.cr ? '#ffe27a' : '#fff6c8');
     fx(H.ci === 2 ? 'impact' : 'clawslash', m.x - H.face * m.r * .3, m.y + m.h * .55, m.z, { sc:H.ci === 2 ? 1.6 : 1.2, flip:H.face < 0 }); }
   if(any){ S(crit || H.ci === 2 ? 'crit' : 'hit' + (1 + (Math.random() * 3 | 0))); hitStop(H.ci === 2 ? .11 : crit ? .085 : .06); shake(H.ci === 2 ? .32 : crit ? .2 : .1); if(H.ci === 2 || crit) W.zoom = zk(1.045); }
@@ -227,14 +230,14 @@ function updHero(dt){
       else { G.comboTimer = .45; H.ci = (H.ci + 1) % 3; H.st = 'idle'; } } }
   else if(H.st === 'spin'){ const ticks = [.08, .26, .44]; H.inv = Math.max(H.inv, .05);
     while(H.hits < 3 && H.t >= ticks[H.hits]){ H.hits++; let any = false;
-      for(const m of MON){ if(!alive(m)) continue; if(Math.abs(m.x - H.x) < 190 + m.r && Math.abs(m.z - H.z) < 90){ any = true; const d = heroDmg(C().s1); hurtMon(m, d.d, { dir:m.x >= H.x ? 1 : -1, kb:H.hits === 3 ? 420 : 120, launch:H.hits === 3 ? 380 : 0, kind:d.cr ? 'crit' : 'n', stagger:true }); sparks(m.x, m.y + m.h * .5, m.z, 8, '#9fe8ff'); } }
+      for(const m of MON){ if(!alive(m)) continue; if(Math.abs(m.x - H.x) < 190 + m.r && Math.abs(m.z - H.z) < 90){ any = true; const d = heroDmg(C().s1); hurtMon(m, d.d, { dir:m.x >= H.x ? 1 : -1, kb:H.hits === 3 ? 420 : 120, launch:H.hits === 3 ? 380 : 0, kind:d.sup ? 'sup' : d.cr ? 'crit' : 'n', stagger:true }); sparks(m.x, m.y + m.h * .5, m.z, 8, '#9fe8ff'); } }
       ring(H.x, H.z, '#9fe8ff', 200); S(any ? 'hit2' : 'swing2'); if(any){ hitStop(.05); shake(.12); } }
     H.x += mx * sp * .5 * dt; H.z += mz * sp * .4 * dt; if(H.t >= .6) H.st = 'idle'; }
   else if(H.st === 'leap'){ const p = clamp(H.t / .2, 0, 1), e = 1 - Math.pow(1 - p, 3); H.inv = Math.max(H.inv, .1);
     H.x = H.lx0 + (H.lx1 - H.lx0) * e; H.z = H.lz0 + (H.lz1 - H.lz0) * e; H.y = Math.sin(p * Math.PI) * 60; if(Math.random() < .7) H.ghosts.push({ x:H.x, z:H.z, y:H.y, t:0, face:H.face });
     if(H.zl) H.zl.prog(p, H.t);
     if(!H.done && H.t >= .2){ H.done = true; H.y = 0; let any = false;
-      for(const m of MON){ if(!alive(m)) continue; if(Math.hypot(m.x - H.x, m.z - H.z) < 200 + m.r * .5){ any = true; const d = heroDmg(C().s2); hurtMon(m, d.d, { dir:m.x >= H.x ? 1 : -1, kb:300, launch:300, kind:d.cr ? 'crit' : 'big', stagger:true }); } }
+      for(const m of MON){ if(!alive(m)) continue; if(Math.hypot(m.x - H.x, m.z - H.z) < 200 + m.r * .5){ any = true; const d = heroDmg(C().s2); hurtMon(m, d.d, { dir:m.x >= H.x ? 1 : -1, kb:300, launch:300, kind:d.sup ? 'sup' : d.cr ? 'crit' : 'big', stagger:true }); } }
       fx('heaven', H.x, 120, H.z - 5, { sc:1.5, rate:22 }); fx('blueelec', H.x, 60, H.z + 4, { sc:3, rate:20 }); ring(H.x, H.z, '#bfe8ff', 220); sparks(H.x, 60, H.z, 20, '#bfe8ff', 700);
       S('crit'); shake(.4); hitStop(.08); flashA = .25; flashC = '#cfeaff'; }
     if(H.t >= .42){ H.st = 'idle'; if(H.zl){ H.zl.dispose(); H.zl = null; } } }
@@ -472,7 +475,7 @@ function drawOverlay(){ const g = og; if(OV.width !== Math.round(W.cw * dpr)) ov
   /* 숫자 */
   g.textAlign = 'center'; for(const d of DN){ const life = d.lab ? 1.3 : .95, a = clamp((life - d.t) / .3, 0, 1); let s = 1; if(!d.lab){ s = d.t < .08 ? 1.7 - d.t / .08 * .7 : 1; if(d.crit && d.t < .12) s *= 1.15; s = 1 + (s - 1) * FK('fxPop'); } const q = W.proj(d.x, d.y, d.z);
     g.save(); g.globalAlpha = a; g.translate(q[0], q[1]); g.scale(s, s); g.font = d.sz + 'px "Do Hyeon",sans-serif'; g.lineJoin = 'round'; g.lineWidth = Math.max(4, d.sz * .16); g.strokeStyle = '#1a0d00'; g.strokeText(d.txt, 0, 0); g.fillStyle = d.col; g.fillText(d.txt, 0, 0);
-    if(d.crit){ g.font = (d.sz * .45) + 'px "Do Hyeon",sans-serif'; g.lineWidth = 3; g.strokeText('치명타!', 0, -d.sz * .8); g.fillStyle = '#fff3b0'; g.fillText('치명타!', 0, -d.sz * .8); } g.restore(); }
+    if(d.crit){ g.font = (d.sz * .45) + 'px "Do Hyeon",sans-serif'; g.lineWidth = 3; const lb = d.sup ? '극치명타!' : '치명타!'; g.strokeText(lb, 0, -d.sz * .8); g.fillStyle = d.sup ? '#ffd1fb' : '#fff3b0'; g.fillText(lb, 0, -d.sz * .8); } g.restore(); }
   /* 보스 문 방향 화살표 */
   if(G.phase === 'gate'){ const q = W.proj(W.L - 140, 200, 0); if(q[0] > W.cw - 20){ const y = W.ch * .45 + Math.sin(performance.now() / 200) * 6; g.fillStyle = '#c9a8ff'; g.font = '26px "Do Hyeon",sans-serif'; g.textAlign = 'right'; g.lineWidth = 5; g.strokeStyle = '#000'; g.strokeText('보스 문 ▶', W.cw - 12, y); g.fillText('보스 문 ▶', W.cw - 12, y); } }
   /* 콤보 */

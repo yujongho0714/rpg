@@ -27,7 +27,7 @@ J.CFG0 = {
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
-J.VER = 'rpg-v29';
+J.VER = 'rpg-v34';
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
@@ -243,6 +243,11 @@ J.buildHero = async function(){
 };
 
 /* ===== 능력치: 끝말잇기 가방(장비) + 변신·동료 ===== */
+/* [rpg-v34] ⚡ 총전투력: 끝말잇기 쪽 LOOT.pwSheet / pwCalc 를 그대로 써요 (공격·체력·치명·극치명·드랍·골드·변신·동료 모두). 못 불러오면 예전 식(공격력×10+체력) */
+J.powSheet = function(){ const s = J.stats(), L = J.L; if(L && L.pwSheet){ try{ return L.pwSheet({ atk:s.atk, hp:s.hp }, true); }catch(e){ console.warn('pw', e); } } return null; };
+let _pw = { t:0, v:0 };
+J.power = function(force){ const n = Date.now(); if(!force && n - _pw.t < 900) return _pw.v; let v; try{ const S = J.powSheet(); v = S ? J.L.pwCalc(S).total : 0; }catch(_){ v = 0; } if(!v){ const s = J.stats(); v = s.atk * 10 + s.hp; } _pw = { t:n, v }; return v; };
+J.powOpen = function(){ if(!J.L || !J.L.pwOpen){ J.toast('끝말잇기 가방을 못 불러왔어요'); return; } const s = J.stats(); J.L.pwOpen({ atk:s.atk, hp:s.hp }); };
 J.stats = function(){ const sh = J.share(), h = sh.hero || {}, tf = sh.tfS || {}, cp = sh.cpS || {}, dx = sh.dex || {};   /* [rpg-v31] dx = 도감 힘(R 공격·Q 체력·D 방어·C 치명, %) */
   let atk0 = h.atk || 0, hp0 = h.hp || 100;
   try{ if(J.L && J.L.atk){ atk0 = J.L.atk(); hp0 = J.L.hp(); } }catch(_){ }
