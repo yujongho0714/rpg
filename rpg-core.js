@@ -27,7 +27,7 @@ J.CFG0 = {
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
-J.VER = 'rpg-v28';
+J.VER = 'rpg-v29';
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
@@ -198,6 +198,17 @@ async function moItem(c, nm){ const MO = J.MO; const idx = MO._i || (MO._i = (()
   if(!it || it.n !== nm){   /* [v28] 폰에 남은 옛 팩이면 이름이 안 맞아요 → 새로 받고, 그래도 어긋나면 이름으로 찾기 */
     J.moStale = (J.moStale || 0) + 1; pk = await J.moPack(c, a[0], true); it = pk && pk.items[a[1]]; if(!it || it.n !== nm) it = (pk && pk.items.find(q => q.n === nm)) || null; }
   if(!it) return null; if(!it._s){ it._s = await J.loadImg(it.s); it._e = it.e ? await J.loadImg(it.e) : null; } return it; }
+/* [v29] 무기 그림 안에 "몸"이 같이 들어 있는 무기: 공격 그림에서 영웅 몸과 살짝 어긋나 두 명이 겹쳐 보여요 (고딕이브닝레드스피어 등).
+   기본 몸에 쓰인 색(피부·머리·속옷)과 같은 색 점을 무기 그림에서 지워요. 아래 이름이 들어간 무기에만 적용해요 (다른 무기도 겹쳐 보이면 한 줄 더 적기).
+   점검해 보니 공격 그림에 몸이 들어 있는 무기: 동명성왕신검, 고딕이브닝레이스우산, 진'주작선장, 착호갑사흑호도, 진'마하데바의활, 대취타나각, 모던검은지우산, 갈호박별화도, 시원한수박반통, 고딕이브닝레드스피어, 대취타등채, 트리슈라, 꽃들의전쟁홍매지우산, 꽃들의전쟁홍매검, [탐험]정의의칼 (검은 우산처럼 몸과 비슷한 색이 있는 무기는 같이 지워질 수 있어서 직접 보고 하나씩 넣어요) */
+const BODY_WEAPON = ['고딕이브닝레드스피어'];
+J.bodyWeapon = nm => BODY_WEAPON.some(k => String(nm || '').indexOf(k) >= 0);
+let _bpal = null, _btc = null;
+function bodyPal(){ if(_bpal || !J.moBase) return _bpal; const im = J.moBase, c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d', { willReadFrequently:true }); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; _bpal = new Set(); for(let i = 0; i < d.length; i += 4) if(d[i + 3] > 200) _bpal.add(((d[i] >> 2) << 16) | ((d[i + 1] >> 2) << 8) | (d[i + 2] >> 2)); return _bpal; }
+function stripBody(src, W, H){ const pal = bodyPal(); if(!pal) return src; if(!_btc) _btc = document.createElement('canvas'); _btc.width = W; _btc.height = H; const t = _btc.getContext('2d', { willReadFrequently:true }); t.clearRect(0, 0, W, H); t.drawImage(src, 0, 0); const im = t.getImageData(0, 0, W, H), d = im.data;
+  for(let i = 0; i < d.length; i += 4) if(d[i + 3] > 200 && pal.has(((d[i] >> 2) << 16) | ((d[i + 1] >> 2) << 8) | (d[i + 2] >> 2))) d[i + 3] = 0;
+  t.putImageData(im, 0, 0); return _btc; }
+J.stripBody = stripBody;
 J.moHas = function(c, nm){ const MO = J.MO; if(!MO || !MO.cats || !MO.cats[c]) return false; const idx = MO._h || (MO._h = {}); if(!idx[c]){ idx[c] = {}; MO.cats[c].forEach(a => { idx[c][a[0]] = 1; }); } return !!idx[c][nm]; };
 J.heroEq = async function(){ if(J.L && J.L.eq) return J.L.eq; return (await J.kget('eq')) || {}; };
 J.buildHero = async function(){
@@ -217,7 +228,7 @@ J.buildHero = async function(){
     for(let f = 0; f < bv.length; f++){ const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d', { willReadFrequently:true });
       for(const c of order){ if(c === 'body'){ x.drawImage(J.moBase, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh); continue; } const it = its[c]; if(!it) continue; const v = moK(it.v, key); if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
         if(it._e){ x.globalCompositeOperation = 'destination-out'; x.drawImage(it._e, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.globalCompositeOperation = 'source-over'; }
-        if(it._s) x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); }
+        if(it._s){ if(c === 'weapon' && J.bodyWeapon(wear.weapon)){ const tw = document.createElement('canvas'); tw.width = W; tw.height = H; tw.getContext('2d').drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.drawImage(stripBody(tw, W, H), 0, 0); } else x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); } }
       const d = x.getImageData(0, 0, W, H).data;
       for(let yy = 0; yy < H; yy += 2) for(let xx = 0; xx < W; xx += 2) if(d[(yy * W + xx) * 4 + 3] > 8){ if(xx < x0) x0 = xx; if(xx > x1) x1 = xx; if(yy < y0) y0 = yy; if(yy > y1) y1 = yy; }
       arr.push(cv); }
