@@ -107,6 +107,30 @@ J.SND = (function(){
 })();
 
 /* ===== 끝말잇기에서 맵·몬스터·이펙트·변신 그림 가져오기 ===== */
+J.autoPack = async function(){
+  const L = J.L, B = (typeof JDSHARE !== 'undefined') ? JDSHARE.base : ''; if(!L || !L.applyPack || !B) return;
+  let m = null; try{ const r = await fetch(B + 'baram-data.json'); if(!r.ok) return; m = await r.json(); }catch(_){ return; }
+  if(!m || !m.files || !m.files.length) return;
+  const KEY = 'jd-baram-rpg'; let done = ''; try{ done = localStorage.getItem(KEY) || ''; }catch(_){ }
+  if(done === String(m.v)) return;
+  J.msg('새 장비표 받는 중…');
+  const got = {}; let total = 0;
+  for(const f of m.files){
+    const r = await fetch(B + String(f).split('/').map(encodeURIComponent).join('/'));
+    if(!r.ok){ J.toast && J.toast('새 장비표 파일을 못 받았어요 (' + r.status + '): ' + f); return; }
+    const p = await r.json(); if(!p || p.format !== 'baram-part') continue; got[p.idx] = p; total = p.total;
+  }
+  if(!total) return; for(let i = 1; i <= total; i++) if(!got[i]){ J.toast && J.toast('장비표 조각 ' + i + '번이 없어요'); return; }
+  const meta = got[1], loot = Object.assign({}, meta.loot, { items:(meta.items || []).slice(), store:Object.assign({}, meta.store) });
+  for(let i = 2; i <= total; i++){ loot.items = loot.items.concat(got[i].items || []); Object.assign(loot.store, got[i].store || {}); }
+  if(!loot.items.length) return;
+  for(let i = 0; i < 60 && !L.goldOk; i++) await new Promise(r => setTimeout(r, 100));   /* 가방이 저장소를 다 읽은 뒤에 적용 (안 그러면 옛 장비표가 덮어써요) */
+  if(!L.goldOk) return;
+  const n = L.applyPack(loot);
+  try{ L._mf = 0; if(L.moFix) L.moFix(); }catch(_){ }
+  try{ localStorage.setItem(KEY, String(m.v)); }catch(_){ }
+  try{ J.toast && J.toast('🎁 장비 ' + n + '개를 받았어요'); }catch(_){ }
+};
 J.boot = async function(){
   J.msg('끝말잇기 정보 읽는 중… (처음 한 번은 조금 오래 걸려요)');
   try{ const r = await fetch('rpg-config.json', { cache:'no-cache' }); if(r.ok) J.cfgApply(await r.json()); }catch(_){ }
@@ -127,6 +151,8 @@ J.boot = async function(){
   if(sh.base) window.JD_DLX_SRC = sh.base;
   if(ok){ J.msg('가방·강화·변신 연결 중…'); try{ JDSHARE.inject(); }catch(e){ console.warn('loot', e); } }
   J.L = window.LOOT || null;
+  /* [rpg-v17] 새 장비표(baram-data.json 이 가리키는 baram_all_*.json)를 RPG가 직접 받아 적용 — 끝말잇기를 따로 안 열어도 되게 */
+  try{ await J.autoPack(); }catch(e){ console.warn('autoPack', e); }
   /* 듀얼리스트 유닛(몬스터·변신·동료) */
   J.msg('변신·동료 그림 읽는 중…');
   const cb = ['dlx-', 'dlx/']; if(sh.base) cb.push(sh.base); try{ const s = localStorage.getItem('jd_dlx_src'); if(s) cb.push(s); }catch(_){ } cb.push(JDSHARE.base + 'dlx-', '/index3/dlx-');
