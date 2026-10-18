@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>정도 RPG</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#10131f">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Dodum&family=Jua&family=Black+Han+Sans&display=swap">
+<style>
+/* 정도 RPG — 끝말잇기와 가방·골드·변신·동료를 같이 쓰는 3D 글로브뷰 액션 RPG (끝말잇기와는 다른 게임) */
+:root{--bg:#10131f;--panel:#1b2033;--line:#2f3756;--fg:#eef1ff;--muted:#98a1c4;--gold:#ffcc4d;--acc:#5fd1ff;--red:#ff5a6a;--grn:#5fe08a;
+ --disp:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:dark}
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
+#wrap,#joy,#pad,#pad button,#cv{touch-action:none}
+.dg{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:.85rem}.dg th{text-align:left;color:var(--muted);font-weight:400;padding:5px 6px 5px 0;white-space:nowrap;vertical-align:top}.dg td{padding:5px 0}
+html,body{margin:0;background:var(--bg);color:var(--fg);height:100%;overflow:hidden;overscroll-behavior:none;box-sizing:border-box}
+body{font-family:var(--body);display:flex;flex-direction:column;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#top{display:flex;align-items:center;gap:8px;padding:6px 12px 3px;padding-top:max(6px,env(safe-area-inset-top,0px));font-family:var(--disp)}
+#top .st{color:var(--acc);font-size:1.15rem}#top .thn{color:var(--muted);font-size:.85rem}
+#top .res{margin-left:auto;display:flex;gap:9px;font-variant-numeric:tabular-nums;font-size:.95rem}#top .res b{color:var(--gold);font-weight:400}
+#hpw{padding:0 12px 4px;display:flex;gap:8px;align-items:center}
+.bar{position:relative;flex:1;height:16px;border-radius:8px;background:#0009;overflow:hidden;border:1px solid var(--line)}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#2fe39a,#5fe0c8);transition:width .12s}
+.bar u{position:absolute;left:0;top:0;bottom:0;background:#fff8;transition:width .5s .25s}
+.bar span{position:relative;display:block;text-align:center;font-size:.72rem;font-weight:800;line-height:16px;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000}
+#pot{font-family:var(--disp);font-size:.95rem;padding:2px 9px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--fg)}
+#quota{margin:0 12px 6px;height:14px;flex:none}#quota i{background:linear-gradient(90deg,#8a6cff,#c9a8ff)}#quota span{line-height:14px;font-size:.68rem}
+#quota.gate i{background:linear-gradient(90deg,#c9a8ff,#ffd6ff);animation:gl 1s infinite alternate}@keyframes gl{to{filter:brightness(1.35)}}
+#wrap{position:relative;flex:1;min-height:0;overflow:hidden}
+#cv,#ov{position:absolute;inset:0;width:100%;height:100%;display:block}
+#cv{touch-action:none;background:#223}#ov{pointer-events:none}
+#ibox{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:3;display:none;align-items:center;gap:8px;background:#0b0e1acc;border:2px solid #3a4266;border-radius:14px;padding:5px 10px 5px 5px;width:min(300px,74vw)}
+#ibox.on{display:flex}#ibox.ibboss{border-color:#ff5a6a;width:min(360px,84vw)}
+#ibp{width:42px;height:42px;border-radius:10px;background:#1c2340;flex:none;image-rendering:pixelated}
+#ibox .r{flex:1;min-width:0}#ibox .n{display:flex;gap:6px;align-items:baseline;font-family:var(--disp);font-size:.95rem;white-space:nowrap;overflow:hidden}#ibox .n small{font-size:.75rem}#ibsh{margin-left:auto;font-weight:400;color:#bfe8ff;font-size:.85rem}
+#ibox .bar{height:12px;margin-top:3px}#ibox .bar i{background:linear-gradient(90deg,#ff3d55,#ff8a5a);transition:none}#ibox .bar u{background:#ffd34d;transition:none}#ibox .bar span{line-height:12px;font-size:.62rem}
+#tr{position:absolute;right:10px;top:62px;z-index:3;display:flex;gap:6px}
+#tr button{font-family:var(--disp);font-size:1rem;padding:6px 11px;border-radius:12px;border:2px solid var(--line);background:#000a;color:var(--fg)}
+#tr button.on{border-color:var(--gold);color:var(--gold)}
+body.admin #tr::before{content:"🛠";font-size:1.2rem;align-self:center}
+#joy{position:absolute;left:0;bottom:0;width:50%;height:46%;z-index:2;touch-action:none}
+#joy .base,#joy .knob{position:absolute;border-radius:50%;pointer-events:none;display:none}
+#joy .base{width:120px;height:120px;margin:-60px 0 0 -60px;background:#ffffff14;border:2px solid #ffffff44}
+#joy .knob{width:56px;height:56px;margin:-28px 0 0 -28px;background:#ffffff55;border:2px solid #fffa}
+#joy.on .base,#joy.on .knob{display:block}
+#joy .jhint{position:absolute;left:16px;bottom:16px;font-size:.75rem;color:#fff9;pointer-events:none;font-family:var(--disp)}
+#pad{position:absolute;right:8px;bottom:8px;width:214px;height:214px;z-index:2}
+#pad button{position:absolute;border-radius:50%;border:3px solid #fff6;color:#fff;font-family:var(--disp);background:#0008;touch-action:none;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#pad button small{font-size:.6rem;opacity:.9}
+#pad button::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(#000b calc(var(--cd,0)*360deg),transparent 0);pointer-events:none}
+#pad button.dn{transform:scale(.92);background:#fff3}
+#pad button.rdy{animation:rdy .5s}@keyframes rdy{0%{box-shadow:0 0 0 0 #ffe27a}100%{box-shadow:0 0 0 14px #ffe27a00}}
+#b-a{right:4px;bottom:4px;width:90px;height:90px;font-size:1.5rem;border-color:#ffd56a!important;background:#5a2a10b8!important}
+#b-s1{right:102px;bottom:0;width:60px;height:60px;font-size:1.2rem}
+#b-s2{right:98px;bottom:70px;width:60px;height:60px;font-size:1.2rem}
+#b-s3{right:28px;bottom:104px;width:60px;height:60px;font-size:1.2rem}
+#b-r{right:160px;bottom:62px;width:52px;height:52px;font-size:1.05rem}
+#menu{display:flex;gap:4px;padding:5px 8px;padding-bottom:max(6px,env(safe-area-inset-bottom,0px));background:#0b0e1a}
+#menu button{flex:1;min-width:0;font-family:var(--disp);font-size:.82rem;padding:6px 0 5px;border-radius:12px;border:2px solid var(--line);background:var(--panel);color:var(--fg);display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.1}
+#menu button b{font-size:1.25rem;font-weight:400}
+#menu button:active{transform:translateY(1px);background:#2a3150}
+#load{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 50% 40%,#2a3360,#10131f);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+#load b{font-family:var(--disp);font-size:2.4rem;font-weight:400;letter-spacing:1px}#load small{color:var(--muted);max-width:30em;line-height:1.6}
+#veil{position:absolute;inset:0;z-index:4;background:#000;opacity:0;pointer-events:none;transition:opacity .25s}#veil.on{opacity:1}
+.ov{position:fixed;inset:0;z-index:40;background:#05060ccc;display:flex;align-items:center;justify-content:center;padding:14px}
+.ov .box{width:min(440px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:2px solid var(--gold);border-radius:16px;padding:14px}
+.ov h2{font-family:var(--disp);font-weight:400;margin:0 0 8px;color:var(--gold);display:flex;justify-content:space-between;align-items:center}
+.ov h2 button{background:#0006;color:var(--fg);border:2px solid var(--line);border-radius:10px;padding:2px 10px;font-size:1rem}
+.mn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mn button{padding:13px 6px;border-radius:12px;border:2px solid var(--line);background:#0006;color:var(--fg);font-family:var(--disp);font-size:1.02rem}
+.mn button.on{border-color:var(--gold);color:var(--gold)}
+.sg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.sg button{padding:9px 0;border-radius:10px;border:2px solid var(--line);background:#0006;color:var(--fg);font-family:var(--disp);font-size:1rem}
+.sg button.on{border-color:var(--gold);background:#5b3fd0}
+.hg{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.hg button{position:relative;padding:0;border-radius:10px;border:2px solid var(--line);background:#0006;overflow:hidden}.hg button.on{border-color:var(--gold)}
+.hg button i{position:absolute;inset:0;background-repeat:no-repeat;image-rendering:pixelated}
+.note{font-size:.82rem;color:var(--muted);line-height:1.6;white-space:pre-line}
+.inp{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:2px solid var(--line);background:#0b0e1a;color:var(--fg);font-size:1rem}
+details.ed{border:2px solid var(--line);border-radius:12px;margin:6px 0;padding:4px 10px}details.ed summary{font-family:var(--disp);font-size:1.05rem;padding:6px 0;cursor:pointer}
+details.ed label{display:block;margin:6px 0 10px}details.ed label b{display:block;font-weight:400;font-family:var(--disp);margin-bottom:3px}details.ed small{display:block;color:var(--muted);font-size:.74rem;margin-top:2px}
+#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:2147483002;background:#000c;color:#fff;padding:8px 14px;border-radius:12px;font-size:.9rem;pointer-events:none;opacity:0;transition:opacity .2s;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+#dropAnchor{position:fixed;width:2px;height:2px;pointer-events:none;z-index:1}
+/* 끝말잇기 가방 안의 '자동사냥'은 이 게임에선 숨겨요 (여기 자동 사냥을 써요) */
+#lt-ah{display:none!important}
+#b-home{flex:none;font-family:var(--disp);font-size:.85rem;padding:3px 9px;border-radius:10px;border:2px solid var(--line);background:#000a;color:var(--fg)}#b-home:active{background:#2a3150}
+</style>
+</head>
+<body>
+<div id="load"><b>정도 RPG</b><small id="lmsg">불러오는 중…</small></div>
+<div id="top"><button type="button" id="b-home">◀ 끝말잇기</button><span class="st" id="stg">STAGE 1</span><span class="thn" id="thn"></span>
+ <div class="res"><span>💰<b id="gold">0</b></span><span>🎫<b id="t1">0</b></span><span>🎟<b id="t2">0</b></span></div></div>
+<div id="hpw"><div class="bar"><u id="phpu"></u><i id="php"></i><span id="phpt"></span></div><button type="button" id="pot">🧪3</button></div>
+<div id="quota" class="bar"><i></i><span></span></div>
+<div id="wrap">
+ <canvas id="cv" aria-label="전투 화면"></canvas><canvas id="ov"></canvas>
+ <div id="ibox"><canvas id="ibp" width="84" height="84"></canvas><div class="r"><div class="n"><span id="ibn"></span><small id="ibs"></small><b id="ibsh"></b></div><div class="bar"><u id="ibt"></u><i id="ibh"></i><span id="ibv"></span></div></div></div>
+ <div id="tr"><button type="button" id="b-auto" class="on">⚔ 자동</button></div>
+ <div id="joy"><div class="base"></div><div class="knob"></div><div class="jhint">여기를 끌면 움직여요</div></div>
+ <div id="pad">
+  <button type="button" id="b-s3">☄<small>운석</small></button>
+  <button type="button" id="b-s2">⚡<small>뇌전</small></button>
+  <button type="button" id="b-r">💨<small>구르기</small></button>
+  <button type="button" id="b-s1">🌀<small>회오리</small></button>
+  <button type="button" id="b-a">⚔<small>공격</small></button>
+ </div>
+ <div id="veil"></div>
+</div>
+<div id="menu">
+ <button type="button" id="m-bag"><b>🎒</b>가방</button>
+ <button type="button" id="m-dlx"><b>🦸</b>변신·동료</button>
+ <button type="button" id="m-gacha"><b>🎰</b>뽑기</button>
+ <button type="button" id="m-syn"><b>⚗</b>합성</button>
+ <button type="button" id="m-stage"><b>🗺</b>스테이지</button>
+ <button type="button" id="m-set"><b>⚙</b>설정</button>
+</div>
+<div id="dropAnchor"></div>
+<div id="toast"></div>
+<script src="three.min.js"></script>
+<script src="share.js"></script>
+<script src="rpg-core.js"></script>
+<script src="rpg-world.js"></script>
+<script src="rpg-game.js"></script>
+<script src="rpg-ui.js"></script>
+<style id="jd-inst-css">
+#jd-install{display:none !important}
+#jd-inst-bar{position:fixed;left:0;right:0;top:0;z-index:2147483000;display:none;align-items:center;gap:10px;padding:calc(7px + env(safe-area-inset-top,0px)) 12px 7px;background:linear-gradient(180deg,#ffd84d,#ffb300);color:#2a1a00;border-bottom:3px solid #140a22;box-shadow:0 3px 10px rgba(0,0,0,.4);font:900 .95rem/1.2 'Jua','Pretendard',sans-serif}
+#jd-inst-bar.on{display:flex}
+#jd-inst-bar img{width:30px;height:30px;border-radius:8px;border:2px solid #140a22;flex:none}
+#jd-inst-bar span{flex:1;min-width:0}
+#jd-inst-bar small{display:block;font-size:.68rem;font-weight:700;opacity:.8}
+#jd-inst-bar button,#jd-inst-pop button.go{border:2.5px solid #140a22;border-radius:12px;background:#e5383b;color:#fff;font:900 .95rem 'Jua','Pretendard',sans-serif;padding:8px 16px;box-shadow:0 3px 0 #140a22;cursor:pointer;flex:none}
+#jd-inst-bar button:active,#jd-inst-pop button.go:active{transform:translateY(2px);box-shadow:0 1px 0 #140a22}
+html.jd-inst-on body{padding-top:calc(48px + env(safe-area-inset-top,0px))}
+#jd-inst-pop{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(6,4,20,.72)}
+#jd-inst-pop.on{display:flex}
+#jd-inst-pop .bx{width:min(360px,100%);background:#1d1238;color:#fff;border:3px solid #ffd84d;border-radius:22px;padding:22px 18px 16px;text-align:center;box-shadow:0 0 0 4px #0b0613,0 14px 40px rgba(0,0,0,.6);font-family:'Jua','Pretendard',sans-serif}
+#jd-inst-pop img{width:84px;height:84px;border-radius:22px;border:3px solid #fff4df;box-shadow:0 6px 0 #0b0613}
+#jd-inst-pop h3{margin:12px 0 4px;font-size:1.3rem;color:#ffd84d;font-weight:400}
+#jd-inst-pop p{margin:4px 0 14px;font-size:.92rem;line-height:1.5;color:#e8e0ff}
+#jd-inst-pop button.go{width:100%;padding:13px;font-size:1.1rem}
+#jd-inst-pop button.later{margin-top:10px;background:none;border:0;color:#b9b0d8;font:700 .85rem 'Jua',sans-serif;cursor:pointer;padding:6px}
+html.jd-inst-on #lt-bag{top:calc(48px + env(safe-area-inset-top,0px))}
+#jd-inst-pop .guide{display:none;text-align:left;background:#2b1d52;border-radius:12px;padding:10px 12px;font-size:.88rem;line-height:1.6;margin-bottom:12px}
+</style>
+<script id="jd-inst-js">
+(function(){
+  /* 설치 안내: 위쪽에 "설치하기" 바가 계속 떠 있고, 열자마자 설치 팝업이 떠요. 설치되면 둘 다 사라져요. */
+  var dp = null, bar, pop, done = false;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if(standalone) return;
+  var ua = navigator.userAgent, isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  /* 안드로이드에서 크롬이 아닌 곳(카카오톡·네이버 앱 안, 삼성 인터넷 등)이면 '설치하기'를 누를 때 크롬으로 바로 열어요.
+     카카오톡·네이버·인스타 같은 앱 안 브라우저에서 열면 열자마자 자동으로 크롬으로 넘어가요. */
+  var isAndroid = /Android/i.test(ua);
+  var isChrome = isAndroid && /Chrome\//.test(ua) && !/SamsungBrowser|EdgA|OPR\/|Whale|NAVER|KAKAOTALK|DaumApps|FBAN|FBAV|Instagram|Line\/|; wv\)/i.test(ua);
+  var isInApp = isAndroid && /KAKAOTALK|NAVER\(inapp|FBAN|FBAV|Instagram|Line\/|DaumApps|; wv\)/i.test(ua);
+  function toChrome(){
+    var u = location.href.split('#')[0];
+    location.href = 'intent://' + u.replace(/^https?:\/\//, '') + '#Intent;scheme=' + (location.protocol === 'http:' ? 'http' : 'https') + ';package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u) + ';end';
+    if(/KAKAOTALK/i.test(ua)) setTimeout(function(){ if(!document.hidden) location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(u); }, 1500);
+  }
+  if(isInApp){ try{ if(!sessionStorage.getItem('jd-to-chrome')){ sessionStorage.setItem('jd-to-chrome', '1'); toChrome(); } }catch(_){ } }
+  function mk(){
+    bar = document.createElement('div'); bar.id = 'jd-inst-bar';
+    bar.innerHTML = '<img src="icon-192.png" alt=""><span>📲 앱으로 설치하기<small>한 번 설치하면 인터넷 없이도 열려요</small></span><button type="button">설치하기</button>';
+    pop = document.createElement('div'); pop.id = 'jd-inst-pop';
+    pop.innerHTML = '<div class="bx"><img src="icon-512.png" alt=""><h3>정도 RPG 앱 설치</h3><p>설치하면 홈 화면에서 바로 열리고,<br>인터넷이 없어도 할 수 있어요!</p><div class="guide"></div><button type="button" class="go">📲 설치하기</button><button type="button" class="later">나중에</button></div>';
+    document.body.appendChild(bar); document.body.appendChild(pop);
+    bar.querySelector('button').onclick = act; pop.querySelector('.go').onclick = act;
+    pop.querySelector('.later').onclick = function(){ pop.classList.remove('on'); };
+    show();
+  }
+  function show(){ if(done) return; bar.classList.add('on'); document.documentElement.classList.add('jd-inst-on'); }
+  function hideAll(){ done = true; if(bar) bar.classList.remove('on'); if(pop) pop.classList.remove('on'); document.documentElement.classList.remove('jd-inst-on'); }
+  function guide(){
+    var g = pop.querySelector('.guide');
+    g.innerHTML = isIOS
+      ? '아이폰은 자동 설치가 막혀 있어요. 한 번만 이렇게 해주세요:<br>① Safari 아래의 <b>공유(⬆︎)</b> 누르기<br>② <b>홈 화면에 추가</b> 누르기<br>③ <b>추가</b> 누르기'
+      : '이 브라우저는 자동 설치 창을 아직 못 띄웠어요. <b>Chrome</b>(또는 삼성 인터넷)에서 열거나, 브라우저 메뉴(⋮)에서 <b>앱 설치 / 홈 화면에 추가</b>를 눌러주세요.';
+    g.style.display = 'block'; pop.querySelector('.go').style.display = 'none'; pop.classList.add('on');
+  }
+  function act(){
+    if(dp){
+      var e = dp; dp = null; pop.classList.remove('on'); e.prompt();
+      (e.userChoice || Promise.resolve()).then(function(c){ if(!(c && c.outcome === 'accepted')) { try{ window._jdDpAgain = true; }catch(_){} } }).catch(function(){});
+    } else if(isAndroid && !isChrome){ toChrome(); }
+    else guide();
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); dp = e;
+    if(bar){ var b = pop.querySelector('.go'); b.style.display = ''; pop.querySelector('.guide').style.display = 'none'; }
+    try{ if(!sessionStorage.getItem('jd-inst-popped')){ sessionStorage.setItem('jd-inst-popped', '1'); setTimeout(function(){ if(!done && pop) pop.classList.add('on'); }, 700); } }catch(_){ if(pop) pop.classList.add('on'); }
+  });
+  window.addEventListener('appinstalled', hideAll);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mk); else mk();
+  /* 자동 설치 창을 못 쓰는 환경(아이폰 등)은 열자마자 안내 팝업 */
+  window.addEventListener('load', function(){ setTimeout(function(){ if(!done && !dp && isIOS){ try{ if(sessionStorage.getItem('jd-inst-popped')) return; sessionStorage.setItem('jd-inst-popped','1'); }catch(_){} guide(); } }, 1800); });
+})();
+</script>
+<script>if('serviceWorker' in navigator && location.protocol==='https:') addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script>
+<script>document.getElementById('b-home').onclick=function(){var u='/index3/';try{u=new URL('../index3/',location.href).href}catch(_){}location.href=u;};</script>
+</body>
+</html>
