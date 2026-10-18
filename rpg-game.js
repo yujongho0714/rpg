@@ -27,9 +27,9 @@ J.refreshHero = async function(){
   H.tfU = null;
   if(tfLook && s.tf && J.DLB[s.tf]){ const u = J.DLB[s.tf]; await J.dlPack(u.p); if(u.im) H.tfU = u; }
   if(!H.tfU){ const art = await J.buildHero(); if(art){ HERO_ART = art; HERO_ART.tex = W.tex(art.canvas); } }
-  /* 걷기 그림이 없는 장비를 입었으면 → 끝말잇기와 똑같은 '옷 입힌 그림'으로 (그림이 빠져 보이지 않게) */
+  /* [v20] 걷기 그림이 없는 장비가 있어도 남자 몸 방향별 모션(HERO_ART)은 그대로 쓰고, 없는 장비만 빠져요 (예전엔 여자 몸 '옷 입힌 그림'으로 바뀌었어요). '옷 입힌 그림'은 HERO_ART를 못 만들었거나 rpg_dress를 켠 때만 써요 */
   H.dress = null;
-  if(!H.tfU && J.L && J.L.pack && J.L.draw && (!HERO_ART || (J.outfitMiss && J.outfitMiss.length) || J.LS.get('rpg_dress', false))){
+  if(!H.tfU && J.L && J.L.pack && J.L.draw && (!HERO_ART || J.LS.get('rpg_dress', false))){
     try{ const P = J.L.pack, c = document.createElement('canvas'); c.width = P.W || 288; c.height = P.H || 251; const x = c.getContext('2d', { willReadFrequently:true });
       let okd = false; for(let i = 0; i < 20 && !okd; i++){ okd = J.L.draw(c, x, performance.now(), null); if(!okd) await new Promise(r => setTimeout(r, 150)); }
       if(okd){ await new Promise(r => setTimeout(r, 300)); J.L.draw(c, x, performance.now(), null); const d = x.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, x1 = 0, y0 = c.height, y1 = 0;
