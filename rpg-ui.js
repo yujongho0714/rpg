@@ -70,6 +70,11 @@ $('m-bag').onclick = () => { if(needLoot()) J.L.openBag(); };
 $('m-dlx').onclick = () => { if(needLoot()) J.L.dlxOpen('equip'); };
 $('m-gacha').onclick = () => { if(needLoot()) J.L.dlxOpen('gacha'); };
 $('m-syn').onclick = () => { if(needLoot()) J.L.dlxOpen('syn'); };
+/* [rpg-v35] 📖 도감 · 🎁 출석·업적(반복 업적 포함) 버튼 — 메뉴에 없으면 만들어 붙여요 */
+(function(){ const ref = $('m-syn'); if(!ref || !ref.parentNode) return;
+  const add = (id, txt, fn) => { if($(id)) return; const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = ref.className; b.textContent = txt; b.onclick = () => { if(needLoot()) fn(); }; ref.parentNode.appendChild(b); };
+  add('m-book', '📖 도감', () => J.L.dlxOpen('book'));
+  add('m-bon', '🎁 출석·업적', () => { if(J.L.bonOpen) J.L.bonOpen(); else J.toast('끝말잇기를 한 번 열어 새 버전을 받은 다음 다시 눌러 주세요'); }); })();
 $('m-stage').onclick = () => stageMenu();
 $('m-set').onclick = () => setMenu();
 function stageMenu(){ const R = J.prog(), c = Math.max(1, R.clr + 1), adm = isAdmin(); let h = '<div class="box"><h2>🗺 스테이지 <button type="button" data-x>✕</button></h2><p class="note">깬 스테이지까지 아무 데서나 시작해요. 막히면 낮은 곳에서 골드·큐브를 모아 강화해요.' + (adm ? '\n(운영자: 모든 스테이지 열림)' : '') + '</p><div class="mn"><button type="button" data-rep>' + (G.repeat ? '🔁 선택 스테이지만 반복: 켬 (눌러서 끄기)' : '🔁 선택 스테이지만 반복: 끔 (눌러서 켜기)') + '</button></div><div class="sg">';

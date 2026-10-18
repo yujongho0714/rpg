@@ -22,6 +22,12 @@ const DLT = {}; /* 듀얼리스트 유닛 텍스처 */
 function dlTex(u){ if(!u.im) return null; if(!DLT[u.k]) DLT[u.k] = W.tex(u.im); return DLT[u.k]; }
 const IMT = new Map(); /* [v12] 스테이지마다 새로 읽은 그림이 계속 쌓이지 않게 beginStage에서 비워요 */
 function imTex(im){ if(!IMT.has(im)) IMT.set(im, W.tex(im)); return IMT.get(im); }
+/* [rpg-v35] 🃏 카드광대: 끝말잇기와 같은 그림·확률(L.CLN.p%) · 일반 몬스터 자리에 나오고, 잡으면 카드 1장 + 뽑기권 (L.clownKill) */
+let CLNIM = null, clnTry = false;
+function clnOk(){ const L = J.L; if(!L || !L.CLN || !L.treArt || !L.clownKill) return false;
+  if(window.jdpOn && !window.jdpOn('treas')) return false;
+  if(!clnTry){ clnTry = true; try{ const svg = L.treArt('cln').replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" '); J.loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)).then(im => { CLNIM = im; }); }catch(e){ console.warn('cln', e); } }
+  return !!CLNIM && Math.random() * 100 < L.CLN.p; }
 J.refreshHero = async function(){
   const tfLook = J.LS.get('rpg_tflook', false), s = J.stats();
   H.tfU = null;
@@ -85,6 +91,7 @@ function mkMon(kind, x, z, boss, minion){
   else if(kind === 'dl' || (boss && !A.boss && A.bossDl)){ const u = boss ? A.bossDl : pick(A.dl); const gr = boss ? 3 + (Math.random() * 3 | 0) : (el ? 3 : u.g - 1);
     m.u = u; m.dl = { gn:J.DLG.nm[gr], col:J.DLG.col[gr], gold:J.DLG.gold[gr] }; m.hp = m.max = hp * J.DLG.hp[gr] / (boss ? 1.6 : 1); m.atk = atk * J.DLG.atk[gr]; m.nm = (boss ? '👑 ' : '') + u.ko; }
   else { m.im = boss ? A.boss : pick(A.mob); m.nm = boss ? '👑 지역 보스' : el ? '⭐ 정예 몬스터' : '몬스터'; }
+  if(!boss && !minion && !el && !m.hid && clnOk()){ m.cln = true; m.u = null; m.dl = null; m.im = CLNIM; m.hp *= 1.5; m.nm = '🃏 카드광대'; }   /* [rpg-v35] */
   m.hp = m.max = Math.round(m.hp); m.atk = Math.round(m.atk);
   if(m.u){ const bb = m.u.bb; m.sc = boss ? 3.4 : 2.6; m.w = (bb[2] - bb[0]) * m.sc; m.h = (bb[3] - bb[1]) * m.sc; m.spr = new W.Spr(dlTex(m.u)); }
   else if(m.im){ m.h = (boss ? 300 : 170) * (el ? 1.15 : 1) * (minion ? .8 : 1); m.w = m.im.width * m.h / m.im.height; m.spr = new W.Spr(imTex(m.im)); }
@@ -134,9 +141,10 @@ function killMon(m, o){
   if(!gold){ const s = J.stats(); gold = Math.round((60 + 12 * G.st) * (m.boss ? 5 : 1) * (m.el ? 3 : 1) * (1 + 1.5 * s.tier) * C().goldMul); }
   const cub = {}; const rr = v => { v *= C().cubeMul; let n = Math.floor(v); if(Math.random() < v - n) n++; return n; };
   if(m.boss){ cub.red = rr(2); cub.black = rr(2); cub.sus = rr(5); } else { cub.sus = rr(1); if(Math.random() < .2 * C().cubeMul) cub[Math.random() < .5 ? 'red' : 'black'] = 1; }
-  if(L && L.addGold){ L.addGold(gold); try{ L.addCubes(cub); }catch(_){ } try{ if(Math.random() * 100 < C().ticketP || m.boss) L.dlxKill(m.hid ? 'hid' : m.boss ? 'boss' : m.el ? 'elite' : 'mob', null, el); }catch(_){ }
+  if(L && L.addGold){ L.addGold(gold); try{ L.addCubes(cub); }catch(_){ } try{ if(Math.random() * 100 < C().ticketP || m.boss) L.dlxKill(m.hid ? 'hid' : m.boss ? 'boss' : m.el ? 'elite' : 'mob', null, el); else if(L.bonKill) L.bonKill(); }catch(_){ }   /* [rpg-v35] 뽑기권을 안 줘도 업적 처치 수는 매번 쌓아요 */
     try{ if(Math.random() * 100 < (m.boss ? C().dropBoss : m.el ? C().dropP * 3 : C().dropP)){ window.RPG.st = G.st; L.drop(m.boss, el, m.hid ? 'h' + (G.hid.i || 0) : G.st); S('loot'); } }catch(e){ console.warn(e); } }
   else J.fallbackReward(gold, cub);
+  if(m.cln){ try{ L.clownKill(el); label(m.x, m.h + 120, m.z, '🃏 카드광대 선물!', '#ffd23f', 26); }catch(e){ console.warn(e); } }   /* [rpg-v35] */
   const nc = m.boss ? 14 : m.el ? 6 : 3; for(let i = 0; i < nc; i++) COINS.push({ x:m.x, z:m.z, y:m.h * .5, vx:rnd(-1, 1) * 240, vz:rnd(-1, 1) * 60, vy:rnd(380, 680), t:0, v:i === 0 ? gold : 0 });
   let k = 0; [['sus','🔷'],['red','🟥'],['black','⬛']].forEach(([c, e]) => { if(cub[c]) label(m.x + 50, m.h + 80 + (k++) * 28, m.z, e + '×' + cub[c], '#e6f6ff', 20); });
   if(m.boss) bossDown(m); }
