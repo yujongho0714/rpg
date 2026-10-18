@@ -109,14 +109,15 @@ J.SND = (function(){
 /* ===== 끝말잇기에서 맵·몬스터·이펙트·변신 그림 가져오기 ===== */
 J.autoPack = async function(){
   const L = J.L, B = (typeof JDSHARE !== 'undefined') ? JDSHARE.base : ''; if(!L || !L.applyPack || !B) return;
-  let m = null; try{ const r = await fetch(B + 'baram-data.json'); if(!r.ok) return; m = await r.json(); }catch(_){ return; }
+  let m = null; try{ const r = await fetch(B + 'baram-data.json', { cache:'no-store' }); if(!r.ok) return; m = await r.json(); }catch(_){ return; }
   if(!m || !m.files || !m.files.length) return;
   const KEY = 'jd-baram-rpg'; let done = ''; try{ done = localStorage.getItem(KEY) || ''; }catch(_){ }
-  if(done === String(m.v)) return;
+  const sig = String(m.v) + '|' + m.files.join(','); if(done === sig) return;
   J.msg('새 장비표 받는 중…');
   const got = {}; let total = 0;
   for(const f of m.files){
-    const r = await fetch(B + String(f).split('/').map(encodeURIComponent).join('/'));
+    const alt = String(f).replace(/ \(\d+\)(?=\.json$)/, ''), names = [String(f), alt !== String(f) ? alt : String(f).replace(/\.json$/, ' (1).json')];
+    let r = null; for(const nm of names){ r = await fetch(B + nm.split('/').map(encodeURIComponent).join('/'), { cache:'no-store' }); if(r.ok) break; }   /* 이름 뒤 ' (1)' 있든 없든 둘 다 시도 */
     if(!r.ok){ J.toast && J.toast('새 장비표 파일을 못 받았어요 (' + r.status + '): ' + f); return; }
     const p = await r.json(); if(!p || p.format !== 'baram-part') continue; got[p.idx] = p; total = p.total;
   }
@@ -128,7 +129,7 @@ J.autoPack = async function(){
   if(!L.goldOk) return;
   const n = L.applyPack(loot);
   try{ L._mf = 0; if(L.moFix) L.moFix(); }catch(_){ }
-  try{ localStorage.setItem(KEY, String(m.v)); }catch(_){ }
+  try{ localStorage.setItem(KEY, sig); }catch(_){ }
   try{ J.toast && J.toast('🎁 장비 ' + n + '개를 받았어요'); }catch(_){ }
 };
 J.boot = async function(){

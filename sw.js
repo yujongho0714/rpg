@@ -1,5 +1,5 @@
 /* 정도 RPG 오프라인 — 한 번 열면 저장돼서 인터넷 없이도 열려요. 게임 파일을 고치면 VERSION을 하나 올려 주세요. */
-const VERSION = 'rpg-v17';
+const VERSION = 'rpg-v19';
 const CACHE = 'jd-rpg-' + VERSION, ART = 'jd-dlx-3', BIG = 'jd-rpg-art-1', WG = 'jd-rpg-wg-1';
 const FONT = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const MUS = Array.from({ length: 10 }, (_, i) => 'bgm-' + ('0' + (i * 5 + 1)).slice(-2) + '-' + ('0' + (i * 5 + 5)).slice(-2) + '.mp3');
@@ -20,6 +20,11 @@ self.addEventListener('fetch', e => {
     if (wg && /\/$|\.html$/.test(u.pathname)) {   // [v13] 끝말잇기 본체 페이지(가방·스타포스 코드): 와이파이면 새 것 먼저 → 끝말잇기를 고쳐도 RPG가 옛 코드를 계속 쓰지 않게 (셀룰러·데이터절약이면 예전처럼 저장본 먼저)
       const cn0 = self.navigator && self.navigator.connection;
       if (!(cn0 && (cn0.saveData || cn0.type === 'cellular'))) { try { const res = await fetch(r); if (res && res.ok) { (await caches.open(WG)).put(r, res.clone()); return res; } } catch (_) {} }
+    }
+    if (wg && /\/baram[-_][^\/]*\.json$/.test(u.pathname)) {   // [v18] 장비표 목록(baram-data.json)·장비표 조각(baram_all_*.json): 폰에 남은 옛 사본을 따라가지 않게 항상 새 것 먼저 (오프라인일 때만 저장본)
+      try { const res = await fetch(r, { cache: 'no-store' }); if (res && res.ok) { (await caches.open(WG)).put(r, res.clone()); return res; } return res; } catch (_) {}
+      for (const k of await caches.keys()) { const h = await (await caches.open(k)).match(r, { ignoreSearch: true }); if (h) return h; }
+      return new Response('', { status: 504 });
     }
     if (wg) {   // 끝말잇기 파일: 끝말잇기 앱이 이미 저장해 둔 것을 먼저 쓰고(데이터 0), 없을 때만 받아요. 셀룰러·데이터절약에선 뒤에서 새로 받지 않아요
       for (const k of await caches.keys()) { if (k === WG) continue; const h = await (await caches.open(k)).match(r, { ignoreSearch: true }); if (h) return h; }
