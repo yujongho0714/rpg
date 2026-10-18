@@ -1,18 +1,19 @@
 /* 정도 RPG 오프라인 — 한 번 열면 저장돼서 인터넷 없이도 열려요. 게임 파일을 고치면 VERSION을 하나 올려 주세요. */
-const VERSION = 'rpg-v27';
-const CACHE = 'jd-rpg-' + VERSION, ART = 'jd-dlx-3', BIG = 'jd-rpg-art-1', WG = 'jd-rpg-wg-1';
+const VERSION = 'rpg-v28';
+const CACHE = 'jd-rpg-' + VERSION, ART = 'jd-dlx-3', BIG = 'jd-rpg-art-1', WG = 'jd-rpg-wg-1', MOC = 'jd-rpg-mo-2';   /* [v28] 모션 팩(mo-*.json)은 따로 저장: 폰에 남은 옛 사본이 새 목록과 어긋나 엉뚱한 그림(열기구·다른 캐릭터)이 나오던 문제 */
 const FONT = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const MUS = Array.from({ length: 10 }, (_, i) => 'bgm-' + ('0' + (i * 5 + 1)).slice(-2) + '-' + ('0' + (i * 5 + 5)).slice(-2) + '.mp3');
 const SFX = ['swing1','swing2','swing3','hit1','hit2','hit3','crit','mdie','mdie2','hurt','roll','spin','ult','slam','warn','coin','clear','spawn','heal','ui','boss','loot'].map(k => 'sfx-' + k + '.m4a');
 const ART_PRE = ['three.min.js', 'pix-ground.png', 'pix-props.png', 'fx-cloud1.png', 'fx-cloud2.png', 'fx-cloud3.png', 'fx-petal.png', 'prop-arch.png', 'prop-lantern.png', 'prop-palm1.png', 'prop-palm2.png', 'mo-index.json'].concat(Array.from({ length: 10 }, (_, i) => 'sky-' + ('0' + (i + 1)).slice(-2) + '.jpg'), SFX);   // 인터넷 없이 처음 열어도 되도록 미리 저장 (없는 파일은 건너뜀)   // 스테이지 음악 10곡: 처음 설치할 때 미리 저장 (이후 데이터 0)
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(Promise.all([caches.open(CACHE).then(c => c.addAll(['./', 'manifest.json', 'icon-192.png', 'icon-512.png', 'share.js', 'rpg-core.js', 'rpg-world.js', 'rpg-game.js', 'rpg-ui.js']).catch(() => {})), caches.open(BIG).then(c => Promise.all(MUS.concat(ART_PRE).map(u => c.match(u).then(h => h || c.add(u)).catch(() => {}))))])); });
-self.addEventListener('activate', e => e.waitUntil((async () => { for (const k of await caches.keys()) if (k.startsWith('jd-rpg-') && ![CACHE, BIG, WG].includes(k)) await caches.delete(k); try { const b = await caches.open(BIG); for (const k of await b.keys()) if (/\/bgm-(field|boss|st\d+)\./.test(k.url) || /\/mo-index\.json|\/mo-[a-z]+-0[01]\d\./.test(k.url)) await b.delete(k); } catch (_) {} await self.clients.claim(); })()));
+self.addEventListener('activate', e => e.waitUntil((async () => { for (const k of await caches.keys()) if (k.startsWith('jd-rpg-') && ![CACHE, BIG, WG, MOC].includes(k)) await caches.delete(k); try { const a0 = await caches.open(ART); for (const k of await a0.keys()) if (/\/mo-[^\/]*\.json/.test(k.url)) await a0.delete(k); } catch (_) {} try { const b = await caches.open(BIG); for (const k of await b.keys()) if (/\/bgm-(field|boss|st\d+)\./.test(k.url) || /\/mo-index\.json|\/mo-[a-z]+-0[01]\d\./.test(k.url)) await b.delete(k); } catch (_) {} await self.clients.claim(); })()));
 self.addEventListener('fetch', e => {
   const r = e.request; if (r.method !== 'GET') return;
   const u = new URL(r.url), same = u.origin === self.location.origin;
   if (!same && !FONT.includes(u.hostname)) return;
   const scope = new URL(self.registration.scope).pathname;
-  const art = same && /\/(dlx|mo)-[^\/]*$/.test(u.pathname) && !/index\.json$/.test(u.pathname);          // 캐릭터 그림: 한 번 받으면 계속
+  const mop = same && /\/mo-[^\/]*\.json$/.test(u.pathname) && !/index\.json$/.test(u.pathname);
+  const art = same && /\/dlx-[^\/]*$/.test(u.pathname) && !/index\.json$/.test(u.pathname);          // 캐릭터 그림: 한 번 받으면 계속
   const big = same && /\/(sky|prop|fx|sfx|bgm|pix)-[^\/]*$|three\.min\.js$/.test(u.pathname);                 // 하늘·나무·소리·음악·3D 엔진: 한 번 받으면 계속
   const wg = same && !u.pathname.startsWith(scope) && (r.mode !== 'navigate');                              // 끝말잇기 파일(맵·몬스터·가방): 저장본 먼저 보여 주고 뒤에서 새로 받기
   const fresh = r.mode === 'navigate' || /\/$|\.html$|\.js$|index\.json$|rpg-config\.json$/.test(u.pathname);
@@ -32,9 +33,9 @@ self.addEventListener('fetch', e => {
       const net = hit && lite ? Promise.resolve(null) : fetch(r).then(res => { if (res && res.ok) c.put(r, res.clone()); return res; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; } return (await net) || new Response('', { status: 504 });
     }
-    const c = await caches.open(art ? ART : big ? BIG : CACHE);
+    const c = await caches.open(mop ? MOC : art ? ART : big ? BIG : CACHE);
     if (fresh && !art && !big) { try { const res = await fetch(r); if (res && res.ok) c.put(r, res.clone()); return res; } catch (err) { return (await c.match(r, { ignoreSearch: true })) || (r.mode === 'navigate' ? await c.match('./') : null) || new Response('오프라인이에요', { status: 503 }); } }
-    const hit = await c.match(r, { ignoreSearch: same }); if (hit) return hit;
+    const hit = await c.match(r, { ignoreSearch: same && !mop }); if (hit) return hit;
     try { const res = await fetch(r); if (res && (res.ok || res.type === 'opaque')) c.put(r, res.clone()); return res; } catch (err) { return new Response('', { status: 504 }); }
   })());
 });

@@ -116,6 +116,7 @@ async function equipCheck(){
   h += '<table class="dg">' + [
     ['모션 데이터', hasMO ? '✅ ' + Object.keys(J.MO.cats).length + '부위' : '❌ 못 읽음 (mo-index.json)'],
     ['이름 연결 함수 (moName)', hasMF ? '✅ 있음' : '⚠ 없음 — 장비 이름 그대로 찾아요'],
+    ['옛 모션 파일 새로 받음', J.moStale ? '🔄 ' + J.moStale + '번 (폰에 옛 파일이 남아 있었어요)' : '없음'],
     ['입은 장비', log.length + '개'],
     ['연결 안 됨', bad ? '❌ ' + bad + '개' : '없음'],
     ['바뀌치기', swp ? '🔀 ' + swp + '개' : '없음'],

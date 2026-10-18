@@ -27,7 +27,7 @@ J.CFG0 = {
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
-J.VER = 'rpg-v27';
+J.VER = 'rpg-v28';
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
@@ -192,28 +192,13 @@ const bareName = n => String(n || '').replace(/^(갑옷|헤어|얼굴장식|얼�
 const MOP = {};
 /* [v14] 새 모션 파일은 앞/뒤를 _f/_b로 저장(옛 파일은 _d/_u) → 둘 다 읽게 */
 const moK = (o, k) => o[k] || o[k.replace(/_d$/, '_f').replace(/_u$/, '_b')] || o[k.replace(/_f$/, '_d').replace(/_b$/, '_u')];
-J.moPack = function(c, p){ const k = c + p; if(!MOP[k]) MOP[k] = fetch(J.MO.pre + 'mo-' + c + '-' + ('00' + p).slice(-3) + '.json').then(r => r.json()).catch(() => null); return MOP[k]; };
+J.moPack = function(c, p, force){ const k = c + p; if(force || !MOP[k]) MOP[k] = fetch(J.MO.pre + 'mo-' + c + '-' + ('00' + p).slice(-3) + '.json' + (force ? '?r=' + Date.now() : ''), force ? { cache:'reload' } : undefined).then(r => r.json()).catch(() => null); return MOP[k]; };
 async function moItem(c, nm){ const MO = J.MO; const idx = MO._i || (MO._i = (() => { const o = {}; Object.keys(MO.cats).forEach(c => { o[c] = {}; MO.cats[c].forEach(a => { o[c][a[0]] = [a[1], a[2]]; }); }); return o; })());
-  const a = idx[c] && idx[c][nm]; if(!a) return null; const pk = await J.moPack(c, a[0]); if(!pk) return null; const it = pk.items[a[1]]; if(!it) return null; if(!it._s){ it._s = await J.loadImg(it.s); it._e = it.e ? await J.loadImg(it.e) : null; } return it; }
+  const a = idx[c] && idx[c][nm]; if(!a) return null; let pk = await J.moPack(c, a[0]); let it = pk && pk.items[a[1]];
+  if(!it || it.n !== nm){   /* [v28] 폰에 남은 옛 팩이면 이름이 안 맞아요 → 새로 받고, 그래도 어긋나면 이름으로 찾기 */
+    J.moStale = (J.moStale || 0) + 1; pk = await J.moPack(c, a[0], true); it = pk && pk.items[a[1]]; if(!it || it.n !== nm) it = (pk && pk.items.find(q => q.n === nm)) || null; }
+  if(!it) return null; if(!it._s){ it._s = await J.loadImg(it.s); it._e = it.e ? await J.loadImg(it.e) : null; } return it; }
 J.moHas = function(c, nm){ const MO = J.MO; if(!MO || !MO.cats || !MO.cats[c]) return false; const idx = MO._h || (MO._h = {}); if(!idx[c]){ idx[c] = {}; MO.cats[c].forEach(a => { idx[c][a[0]] = 1; }); } return !!idx[c][nm]; };
-/* [v27] 무기 그림 안에 따로 떨어진 "다른 캐릭터"가 섞인 무기(영상: 고딕이브닝레드스피어 → 캐릭이 2개)는, 몸 근처와 안 닿는 덩어리를 지워요.
-   대상은 이름이 아래 글자를 포함한 무기만이에요. 다른 무기도 같은 증상이면 이름을 한 줄 더 적으면 돼요. */
-const STRAY_WEAPON = ['고딕이브닝레드스피어'];
-J.strayWeapon = nm => STRAY_WEAPON.some(k => String(nm || '').indexOf(k) >= 0);
-let _stc = null;
-function stripStray(src, kb, W, H){
-  if(!_stc){ _stc = document.createElement('canvas'); } _stc.width = W; _stc.height = H; const t = _stc.getContext('2d', { willReadFrequently:true }); t.clearRect(0, 0, W, H); t.drawImage(src, 0, 0);
-  const g = 4, gw = Math.ceil(W / g), gh = Math.ceil(H / g), im = t.getImageData(0, 0, W, H), d = im.data, occ = new Uint8Array(gw * gh);
-  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(d[(y * W + x) * 4 + 3] > 8) occ[((y / g) | 0) * gw + ((x / g) | 0)] = 1;
-  const lab = new Int32Array(gw * gh).fill(-1), drop = []; let n = 0;
-  for(let i = 0; i < occ.length; i++){ if(!occ[i] || lab[i] >= 0) continue; const q = [i]; lab[i] = n; let x0 = gw, y0 = gh, x1 = 0, y1 = 0;
-    while(q.length){ const c = q.pop(), cx = c % gw, cy = (c / gw) | 0; if(cx < x0) x0 = cx; if(cx > x1) x1 = cx; if(cy < y0) y0 = cy; if(cy > y1) y1 = cy;
-      for(let dy = -2; dy <= 2; dy++) for(let dx = -2; dx <= 2; dx++){ const nx = cx + dx, ny = cy + dy; if(nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue; const k = ny * gw + nx; if(occ[k] && lab[k] < 0){ lab[k] = n; q.push(k); } } }
-    const m = 24, hit = !(x1 * g + g < kb[0] - m || x0 * g > kb[0] + kb[2] + m || y1 * g + g < kb[1] - m || y0 * g > kb[1] + kb[3] + m); drop[n] = !hit; n++; }
-  if(!drop.some(Boolean)) return src;
-  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const l = lab[((y / g) | 0) * gw + ((x / g) | 0)]; if(l >= 0 && drop[l]) d[(y * W + x) * 4 + 3] = 0; }
-  t.putImageData(im, 0, 0); return _stc; }
-J.stripStray = stripStray;
 J.heroEq = async function(){ if(J.L && J.L.eq) return J.L.eq; return (await J.kget('eq')) || {}; };
 J.buildHero = async function(){
   const MO = J.MO; if(!MO || !J.moBase) return null;
@@ -232,7 +217,7 @@ J.buildHero = async function(){
     for(let f = 0; f < bv.length; f++){ const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d', { willReadFrequently:true });
       for(const c of order){ if(c === 'body'){ x.drawImage(J.moBase, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh); continue; } const it = its[c]; if(!it) continue; const v = moK(it.v, key); if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
         if(it._e){ x.globalCompositeOperation = 'destination-out'; x.drawImage(it._e, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.globalCompositeOperation = 'source-over'; }
-        if(it._s){ if(c === 'weapon' && J.strayWeapon(wear.weapon)){ const tw = document.createElement('canvas'); tw.width = W; tw.height = H; tw.getContext('2d').drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.drawImage(stripStray(tw, MO.base.box, W, H), 0, 0); } else x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); } }
+        if(it._s) x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); }
       const d = x.getImageData(0, 0, W, H).data;
       for(let yy = 0; yy < H; yy += 2) for(let xx = 0; xx < W; xx += 2) if(d[(yy * W + xx) * 4 + 3] > 8){ if(xx < x0) x0 = xx; if(xx > x1) x1 = xx; if(yy < y0) y0 = yy; if(yy > y1) y1 = yy; }
       arr.push(cv); }
