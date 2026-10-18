@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>정도 RPG</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#10131f">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Dodum&display=swap">
+<style>
+/* 정도 RPG — 끝말잇기와 가방·골드·변신·동료를 같이 쓰는 옆모습 방치 RPG (끝말잇기와는 다른 게임) */
+:root{--bg:#10131f;--panel:#1b2033;--line:#2f3756;--fg:#eef1ff;--muted:#98a1c4;--gold:#ffcc4d;--acc:#5fd1ff;--red:#ff5a6a;--grn:#5fe08a;
+ --disp:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:dark}
+html,body{margin:0;background:var(--bg);color:var(--fg);height:100%}
+body{font-family:var(--body);display:flex;flex-direction:column;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+#top{display:flex;align-items:center;gap:8px;padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top,0px));font-family:var(--disp);flex-wrap:wrap}
+#top b{font-size:1.25rem;letter-spacing:.5px}
+#top .st{color:var(--acc)}
+#top .res{margin-left:auto;display:flex;gap:10px;font-variant-numeric:tabular-nums;font-size:.95rem}
+#top .res span b{font-size:.95rem;color:var(--gold)}
+#wrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+#cv{width:100%;flex:1;min-height:240px;display:block;touch-action:none;image-rendering:pixelated;background:#223}
+#bars{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px 12px}
+.bar{position:relative;height:16px;border-radius:8px;background:#0008;overflow:hidden;border:1px solid var(--line)}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#ff5a6a,#ff9a6a);transition:width .15s}
+.bar.me i{background:linear-gradient(90deg,#2fe39a,#5fe0c8)}
+.bar span{position:relative;display:block;text-align:center;font-size:.72rem;font-weight:800;line-height:16px;font-variant-numeric:tabular-nums}
+#waves{display:flex;gap:4px;justify-content:center;padding:0 12px 4px}
+#waves i{width:10px;height:10px;border-radius:50%;background:#0008;border:1px solid var(--line)}#waves i.d{background:var(--grn)}#waves i.b{width:auto;padding:0 6px;font-style:normal;font-size:.62rem;height:auto;border-radius:6px}#waves i.b.on{background:var(--red)}
+#btns{display:flex;gap:6px;padding:6px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom,0px));overflow-x:auto}
+#btns button{flex:0 0 auto;font-family:var(--disp);font-size:1rem;padding:9px 12px;border-radius:12px;border:2px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+#btns button.on{border-color:var(--gold);color:var(--gold);background:#3a3216}
+#btns button:focus-visible{outline:3px solid var(--acc)}
+#load{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+#load b{font-family:var(--disp);font-size:2rem}#load small{color:var(--muted);max-width:30em;line-height:1.6}
+.ov{position:fixed;inset:0;z-index:40;background:#05060ccc;display:flex;align-items:center;justify-content:center;padding:14px}
+.ov .box{width:min(440px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:2px solid var(--gold);border-radius:16px;padding:14px}
+.ov h2{font-family:var(--disp);font-weight:400;margin:0 0 8px;color:var(--gold);display:flex;justify-content:space-between;align-items:center}
+.ov h2 button{background:#0006;color:var(--fg);border:2px solid var(--line);border-radius:10px;padding:2px 10px;font-size:1rem}
+.sg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.sg button{padding:9px 0;border-radius:10px;border:2px solid var(--line);background:#0006;color:var(--fg);font-family:var(--disp);font-size:1rem}
+.sg button.on{border-color:var(--gold);background:#5b3fd0}
+.hg{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.hg button{position:relative;padding:0;border-radius:10px;border:2px solid var(--line);background:#0006;overflow:hidden}
+.hg button.on{border-color:var(--gold)}
+.hg button i{position:absolute;inset:0;background-repeat:no-repeat;image-rendering:pixelated}
+.note{font-size:.8rem;color:var(--muted);line-height:1.55}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;background:#000c;color:#fff;padding:8px 14px;border-radius:12px;font-size:.9rem;pointer-events:none;opacity:0;transition:opacity .2s;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="load"><b>정도 RPG</b><small id="lmsg">불러오는 중…</small></div>
+<div id="top"><b>정도 RPG</b><span class="st" id="stg">STAGE 1</span>
+ <div class="res"><span>💰 <b id="gold">0</b></span><span>🎫 <b id="t1">0</b></span><span>🎟 <b id="t2">0</b></span></div></div>
+<div id="wrap"><canvas id="cv" width="720" height="480" aria-label="전투 화면"></canvas></div>
+<div id="waves"></div>
+<div id="bars"><div class="bar me"><i id="php"></i><span id="phpt"></span></div><div class="bar"><i id="mhp"></i><span id="mhpt"></span></div></div>
+<div id="btns">
+ <button id="b-auto" class="on" type="button">⚔ 자동</button>
+ <button id="b-walk" type="button">🕹 직접</button>
+ <button id="b-stage" type="button">🗺 스테이지</button>
+ <button id="b-hair" type="button">💇 헤어</button>
+ <button id="b-sync" type="button">🔄 가방 다시 읽기</button>
+</div>
+<div id="toast"></div>
+<script>
+(async function(){
+'use strict';
+/* ===== 설정 (나중에 숫자만 바꾸면 돼요) ===== */
+const CFG = {
+  goldMul: 0.5,          // 끝말잇기 플레이 골드 × 이 값
+  cubeMul: 0.5,          // 끝말잇기 플레이 큐브 × 이 값
+  t1Boss: 20, t2Boss: 5, t1Mob: 1,   // 뽑기권 확률(%)
+  boxBoss: 1, boxElite: 10,          // 장비 상자: 보스 1개 · 정예 10% (끝말잇기 가방에서 열려요)
+  atkMs: 700, monMs: 1600, pot: 40,  // 공격 간격 · 몬스터 공격 간격 · 물약 쓰는 체력%
+  hidP: 3                            // 보스 잡으면 히든 포탈 확률(%)
+};
+const GOLD = { mob:60, st:12, boss:5, elite:3, tier:1.5 };
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const loadImg = src => new Promise(r => { if(!src){ r(null); return; } const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+const fmt = n => n >= 1e8 ? (n / 1e8).toFixed(1) + '억' : n >= 1e4 ? Math.floor(n / 1e4) + '만' + (n % 1e4 >= 1000 ? ' ' + Math.floor(n % 1e4 / 1000) + '천' : '') : String(Math.floor(n));
+function toast(s){ const t = $('toast'); t.textContent = s; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); }
+const lmsg = s => { $('lmsg').textContent = s; };
+const LS = { get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(_){ return d; } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } } };
+
+/* ===== 끝말잇기와 같이 쓰는 저장소 (IndexedDB 'jd-loot') ===== */
+function db(){ return new Promise((res, rej) => { const r = indexedDB.open('jd-loot', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function kget(k){ try{ const d = await db(); return await new Promise(res => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); }catch(_){ return null; } }
+async function kset(k, v){ try{ const d = await db(); await new Promise(res => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = res; }); }catch(_){ } try{ localStorage.setItem('jd_sync', String(Date.now())); }catch(_){ } }
+const S = { gold:0, eq:{}, own:{}, cube:{}, dlx:null, share:null };
+async function readSave(){
+  S.gold = Number(await kget('gold')) || 0; S.eq = (await kget('eq')) || {}; S.cube = (await kget('cube')) || {}; S.dlx = (await kget('dlx')) || null;
+  S.share = LS.get('jd_share', null); hud();
+}
+/* 보상은 바로 저장소에 더해요 (끝말잇기가 다음에 열리거나 '가방 다시 읽기' 때 반영) */
+let pend = { g:0, c:{}, t1:0, t2:0 }, saveT = null;
+function addRew(r){ pend.g += r.g || 0; ['sus','red','black'].forEach(k => { if(r[k]) pend.c[k] = (pend.c[k] || 0) + r[k]; }); pend.t1 += r.t1 || 0; pend.t2 += r.t2 || 0;
+  S.gold += r.g || 0; if(S.dlx){ S.dlx.t1 = (S.dlx.t1 || 0) + (r.t1 || 0); S.dlx.t2 = (S.dlx.t2 || 0) + (r.t2 || 0); } hud(); clearTimeout(saveT); saveT = setTimeout(flush, 1500); }
+async function flush(){ const p = pend; pend = { g:0, c:{}, t1:0, t2:0 };
+  if(p.g){ const g = Number(await kget('gold')) || 0; await kset('gold', g + p.g); }
+  if(Object.keys(p.c).length){ const c = (await kget('cube')) || {}; Object.keys(p.c).forEach(k => c[k] = (c[k] || 0) + p.c[k]); await kset('cube', c); }
+  if(p.t1 || p.t2){ const d = (await kget('dlx')) || { own:{}, tf:null, cp:null, t1:0, t2:0, pity:[0,0,0,0,0] }; d.t1 = (d.t1 || 0) + p.t1; d.t2 = (d.t2 || 0) + p.t2; await kset('dlx', d); } }
+function mailBox(n, bq){ try{ const a = JSON.parse(localStorage.getItem('jd_mail') || '[]'); a.push({ id:'rpg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), src:'rpg', box:n, bq }); localStorage.setItem('jd_mail', JSON.stringify(a)); }catch(_){ } }
+window.addEventListener('pagehide', flush); document.addEventListener('visibilitychange', () => { if(document.hidden) flush(); else readSave(); });
+window.addEventListener('storage', e => { if(e.key === 'jd_sync_wg') readSave(); });
+function hud(){ $('gold').textContent = fmt(S.gold); $('t1').textContent = (S.dlx && S.dlx.t1) || 0; $('t2').textContent = (S.dlx && S.dlx.t2) || 0; }
+
+/* ===== 끝말잇기 그림 보관함(맵·몬스터·히든보스)을 그대로 읽어 와요 ===== */
+lmsg('끝말잇기 맵·몬스터 읽는 중…');
+let LIB = { map:[], mob:[], boss:[], st:[] }, HID = null;
+try{ const sh0 = LS.get('jd_share', null), cands = [];
+  try{ if(sh0 && sh0.page){ const u = new URL(sh0.page, location.href); if(u.origin === location.origin) cands.push(u.pathname); } }catch(_){ }
+  cands.push('/index3/', 'index3.html', 'index.html');   /* RPG를 다른 저장소에 둬도 끝말잇기(index3 저장소)를 찾아요 */   /* 끝말잇기 파일 이름이 index3.html이든 index.html이든 찾아요 */
+  let t = '';
+  for(const c of cands){ try{ const r = await fetch(c); if(!r.ok) continue; const x = await r.text(); if(x.indexOf('id="jd-lib"') >= 0){ t = x; break; } }catch(_){ } }
+  const blk = id => { const re = new RegExp('<script[^>]*id="' + id + '"[^>]*>\\s*(?=[\\[{])', 'g'); const m = re.exec(t); if(!m) return null; const e = t.indexOf('</scr' + 'ipt>', re.lastIndex); try{ return JSON.parse(t.slice(re.lastIndex, e)); }catch(_){ return null; } };
+  LIB = blk('jd-lib') || LIB; HID = blk('jd-hidden'); }catch(_){ }
+const REG = []; (LIB.st || []).forEach((c, i) => { if(c && c.m >= 0 && LIB.map[c.m] && c.mob && c.mob.length) REG.push({ i, map:c.m, mob:c.mob.filter(x => LIB.mob[x]), boss:(c.boss || []).filter(x => LIB.boss[x]) }); });
+const IMG = {}; const img = async u => { if(!u) return null; if(IMG[u] !== undefined) return IMG[u]; IMG[u] = null; IMG[u] = await loadImg(u); return IMG[u]; };
+
+/* ===== 듀얼리스트 (변신·동료·몬스터) ===== */
+lmsg('변신·동료 그림 읽는 중…');
+let DL = null; const DLB = {}, DLP = {};
+{ const sh1 = LS.get('jd_share', null), cb = ['dlx-', 'dlx/'];
+  if(sh1 && sh1.base) cb.push(sh1.base); try{ const s = localStorage.getItem('jd_dlx_src'); if(s) cb.push(s); }catch(_){ } cb.push('/index3/dlx-');   /* 그림은 끝말잇기 저장소 것을 같이 써요 */
+  for(const b of cb){ try{ const r = await fetch(b + 'index.json'); if(r.ok){ DL = await r.json(); DL.base = b; break; } }catch(_){ } } }
+if(DL) DL.units.forEach((u, i) => { u.o = i; DLB[u.k] = u; });
+function dlPack(p){ if(DLP[p]) return DLP[p]; DLP[p] = fetch(DL.base + 'pack-' + ('00' + p).slice(-3) + '.json').then(r => r.json()).then(async d => { for(const k of Object.keys(d)) if(DLB[k]) DLB[k].im = await loadImg(d[k]); return true; }).catch(() => { delete DLP[p]; return false; }); return DLP[p]; }
+function dlSeg(u, m){ const n = u.n; return m === 'a' ? [n[0], n[1]] : m === 'h' ? [n[0] + n[1], n[2]] : m === 'd' ? [n[0] + n[1] + n[2], n[3]] : [0, n[0]]; }
+const DLW = [50, 28, 13, 6, 2.5, 0.5], DLHP = [130,160,200,260,340,450], DLAT = [110,120,135,150,170,200], DLG = [2,3,5,8,12,20], DLCOL = ['#5fd38a','#4aa3ff','#b45cff','#ff9a2e','#ff4b4b','#46d7ff'], DLGN = ['고급','희귀','영웅','전설','신화','유일'];
+function dlRoll(boss){ if(!DL) return null; if(Math.random() * 100 >= (boss ? 10 : 12)) return null; let r = Math.random() * (boss ? 100 : 100), g = 0; const w = boss ? [0,0,0,40,40,20] : DLW; for(let i = 0; i < 6; i++){ r -= w[i]; if(r < 0){ g = i; break; } }
+  const rb = DL.units.filter(u => u.g === g + 1 && u.o < 60 + 0); const pool = rb.length ? rb : DL.units.filter(u => u.g === g + 1); const u = pool[Math.random() * pool.length | 0]; if(!u) return null; dlPack(u.p); return { u, hp:DLHP[g] / 100, atk:DLAT[g] / 100, gold:DLG[g], col:DLCOL[g], gn:DLGN[g] }; }
+
+/* ===== 자무주 모션 팩 (내 장비를 입은 영웅 · 걷기·공격 우·전·후) ===== */
+lmsg('캐릭터 그림 읽는 중…');
+let MO = null; try{ const r = await fetch('mo-index.json'); if(r.ok) MO = await r.json(); }catch(_){ }
+const MOC = { weapon:'weapon', helmet:'helmet', armor:'armor', set:'set', outer:'coat', shield:'shield', cloak:'cape', shoes:'shoes' };
+const ORDER = ['cape','set','armor','coat','shoes','hair','helmet','shield','weapon'];
+const MOI = {}; if(MO) Object.keys(MO.cats).forEach(c => { MOI[c] = {}; MO.cats[c].forEach(a => { MOI[c][a[0]] = [a[1], a[2]]; }); });
+const MOP = {};
+async function moPack(c, p){ const k = c + p; if(!MOP[k]) MOP[k] = fetch('mo-' + c + '-' + ('00' + p).slice(-3) + '.json').then(r => r.json()).catch(() => null); return MOP[k]; }
+async function moItem(c, nm){ const a = MOI[c] && MOI[c][nm]; if(!a) return null; const pk = await moPack(c, a[0]); if(!pk) return null; const it = pk.items[a[1]]; if(!it) return null; if(!it._s){ it._s = await loadImg(it.s); it._e = it.e ? await loadImg(it.e) : null; } return it; }
+const bareName = n => String(n || '').replace(/^(갑옷|헤어|얼굴장식|얼굴|목_어깨장식|장신구|방패_보조무기|방패|망토|신발|세트옷|무기|겉옷|투구)_/, '');
+const KEYS = ['walk_r','walk_d','walk_u','atk_r','atk_d','atk_u'];
+let HF = {}, baseImg = MO ? await loadImg(MO.base.s) : null, outfitTxt = '';
+async function buildHero(){
+  if(!MO || !baseImg){ HF = {}; return; }
+  const W = MO.W, H = MO.H, wear = {}, miss = [];
+  Object.keys(S.eq || {}).forEach(gc => { const c = MOC[gc]; if(!c) return; const k = S.eq[gc]; if(!k) return; const nm = bareName(String(k).split('|')[1].split('@')[0]); wear[c] = nm; });
+  const hair = LS.get('rpg_hair', null); if(hair) wear.hair = hair;
+  const its = {}; for(const c of Object.keys(wear)){ const it = await moItem(c, wear[c]); if(it) its[c] = it; else miss.push(c); }
+  outfitTxt = miss.length ? '아직 걷기·공격 그림이 없는 장비 (자무주 수집기로 받으면 나와요)\n' + miss.map(c => ({cape:'망토',set:'세트옷',armor:'갑옷',coat:'겉옷',shoes:'신발',helmet:'투구',shield:'방패',weapon:'무기',hair:'헤어'})[c] + ': ' + wear[c]).join('\n') : '';
+  const nf = {};
+  for(const key of KEYS){ const bv = MO.base.v[key], [bx, by, bw, bh] = MO.base.box, arr = [];
+    for(let f = 0; f < bv.length; f++){ const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+      x.drawImage(baseImg, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh);
+      for(const c of ORDER){ const it = its[c]; if(!it) continue; const v = it.v[key]; if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
+        if(it._e){ x.globalCompositeOperation = 'destination-out'; x.drawImage(it._e, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.globalCompositeOperation = 'source-over'; }
+        if(it._s) x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); }
+      arr.push(cv); }
+    nf[key] = arr; }
+  HF = nf;
+}
+
+/* ===== 능력치: 끝말잇기가 알려 준 내 공격력·체력 + 변신·동료 ===== */
+function stats(){ const sh = S.share || {}, h = sh.hero || {}, tf = sh.tfS || {}, cp = sh.cpS || {};
+  return { atk: Math.round((40 + (h.atk || 0)) * (1 + (tf.R || 0) / 100)), hp: Math.round((h.hp || 100) * (1 + (tf.Q || 0) / 100)), tier: h.tier || 0, cpC: cp.C || 0, tf: sh.tf, cp: sh.cp }; }
+
+/* ===== 전투 ===== */
+const cv = $('cv'), g = cv.getContext('2d');
+let GW = 720, GH = 480, TOP = 300, SC = 2;
+function fit(){ const r = cv.getBoundingClientRect(); GW = 720; GH = Math.max(380, Math.min(900, Math.round(720 * r.height / Math.max(1, r.width)))); cv.width = GW; cv.height = GH; TOP = Math.round(GH * .58); g.imageSmoothingEnabled = false; }
+window.addEventListener('resize', fit);
+const R = LS.get('rpg_prog', { clr:0, pick:1 });
+const G = { st:Math.max(0, (R.pick || 1) - 1), wave:0, boss:false, hid:null, mon:null, php:100, pmax:100, pot:3, kills:0, mode:'auto', cam:0 };
+const hero = { x:140, y:0, d:'r', st:'walk', t:0, f:0, cd:0, tx:null, ty:null, atkT:0 };
+let fx = [], cpPos = { x:80, y:0 }, monT = 0;
+function region(){ return REG.length ? REG[G.st % REG.length] : null; }
+async function spawn(){
+  const st = G.st, rg = region(), boss = G.boss, hid = G.hid, el = !boss && !hid && Math.random() < .08;
+  let hp = boss ? 300 + 60 * st : 140 + 25 * st, atk = (20 + 2 * st) * (boss ? 2 : 1); const cv10 = Math.pow(1.1, Math.floor(st / 10)), ca = Math.pow(1.05, Math.floor(st / 10)); hp *= cv10; atk *= ca;
+  if(el){ hp *= 2; atk *= 1.3; }
+  let m = { x: hero.x + 300, y: TOP + (GH - TOP) * .45, hp, max:hp, atk, boss, el, hid:!!hid, t:0, hit:0, dead:0, im:null, dl:null, nm:'' };
+  if(hid){ m.hp = m.max = (hid.hpB + hid.hpP * st) * 2; m.atk = hid.aB + hid.aP * st; m.im = await img(hid.img && hid.img.boss); m.nm = '🕳 ' + hid.nm; }
+  else { const d = dlRoll(boss); if(d){ m.dl = d; m.hp = m.max = Math.round(hp * d.hp); m.atk = atk * d.atk; m.nm = (boss ? '👑 ' : '') + '[' + d.gn + '] ' + d.u.ko; }
+    else if(rg){ const L = boss ? LIB.boss : LIB.mob, a = boss ? rg.boss : rg.mob; if(a.length) m.im = await img(L[a[Math.random() * a.length | 0]]); m.nm = (boss ? '👑 보스' : el ? '⭐ 정예' : '몬스터'); }
+    else m.nm = boss ? '👑 보스' : '몬스터'; }
+  m.hp = Math.round(m.hp); m.max = Math.round(m.max); m.atk = Math.round(m.atk);
+  G.mon = m; ui();
+}
+function ui(){ const m = G.mon; $('stg').textContent = 'STAGE ' + (G.st + 1) + (G.hid ? ' · 🕳 히든' : G.boss ? ' · 👑 보스' : ''); $('php').style.width = Math.max(0, G.php / G.pmax * 100) + '%'; $('phpt').textContent = '내 체력 ' + Math.max(0, Math.round(G.php)) + ' / ' + G.pmax + ' · 🧪' + G.pot;
+  $('mhp').style.width = m ? Math.max(0, m.hp / m.max * 100) + '%' : '0'; $('mhpt').textContent = m ? (m.nm + ' ' + Math.max(0, m.hp) + ' / ' + m.max) : '';
+  let w = ''; for(let i = 0; i < 5; i++) w += '<i class="' + (i < G.wave ? 'd' : '') + '"></i>'; $('waves').innerHTML = w + '<i class="b' + (G.boss ? ' on' : '') + '">BOSS</i>'; }
+function pop(x, y, t, c, big){ fx.push({ x, y, t, c, a:0, big }); }
+function goldKill(m){ const s = stats(); let gg = (GOLD.mob + GOLD.st * G.st) * (m.hid ? 20 : m.boss ? GOLD.boss : 1) * (m.el ? GOLD.elite : 1) * (1 + GOLD.tier * s.tier) * (m.dl ? m.dl.gold : 1); return Math.max(1, Math.round(gg * CFG.goldMul)); }
+function rr(v){ v *= CFG.cubeMul; let n = Math.floor(v); if(Math.random() < v - n) n++; return n; }
+function kill(m){
+  m.dead = .01; G.kills++;
+  const r = { g:goldKill(m) };
+  if(m.boss || m.hid){ r.red = rr(2); r.black = rr(2); r.sus = rr(5); } else { r.sus = rr(3); if(Math.random() < .5 * CFG.cubeMul) r[Math.random() < .5 ? 'red' : 'black'] = 1; }
+  if(Math.random() * 100 < (m.boss || m.hid ? CFG.t1Boss : CFG.t1Mob)) r.t1 = 1; if((m.boss || m.hid) && Math.random() * 100 < CFG.t2Boss) r.t2 = 1;
+  let box = 0; if(m.boss || m.hid) box = CFG.boxBoss; else if(m.el && Math.random() * 100 < CFG.boxElite) box = 1;
+  if(box) mailBox(box, Math.min(4, 1 + Math.floor(G.st / 10) + (m.hid ? 1 : 0)));
+  addRew(r);
+  pop(m.x, m.y - 120, '💰+' + fmt(r.g), '#ffcc4d'); let k = 0; [['sus','🔷'],['red','🟥'],['black','⬛']].forEach(([c, e]) => { if(r[c]) pop(m.x + 30, m.y - 150 - (k++) * 22, e + '×' + r[c], '#cfe'); });
+  if(r.t1) pop(m.x - 40, m.y - 150, '🎫+1', '#8fd0ff'); if(r.t2) pop(m.x - 40, m.y - 175, '🎟+1', '#ff9a2e'); if(box) pop(m.x, m.y - 200, '🎁 장비 상자', '#fff', true);
+  setTimeout(next, 600);
+}
+function next(){
+  const m = G.mon;
+  if(m.hid){ G.hid = null; G.boss = false; G.wave = 0; toast('🕳 히든보스 격파!'); }
+  else if(m.boss){ G.boss = false; G.wave = 0; G.st++; G.pot = 3; if(G.st > R.clr){ R.clr = G.st; R.pick = G.st; LS.set('rpg_prog', R); } toast('👑 보스 격파! STAGE ' + (G.st + 1)); if(HID && HID.maps && HID.maps.length && Math.random() * 100 < CFG.hidP){ G.hid = HID.maps[Math.random() * HID.maps.length | 0]; G.boss = true; toast('🌀 히든 포탈이 열렸어요!'); } }
+  else { G.wave++; if(G.wave >= 5) G.boss = true; }
+  G.php = Math.min(G.pmax, G.php + G.pmax * (m.boss ? .5 : .15));
+  G.mon = null; spawn();
+}
+function die(){ toast('💀 쓰러졌어요! STAGE ' + (G.st + 1) + ' 처음부터'); G.wave = 0; G.boss = false; G.hid = null; G.pot = 3; const s = stats(); G.pmax = s.hp; G.php = G.pmax; G.mon = null; hero.x = G.cam + 140; spawn(); }
+function hit(){
+  const m = G.mon; if(!m || m.dead) return; const s = stats(), cr = Math.random() < .15; let d = Math.round(s.atk * (cr ? 1.5 : 1) * (0.9 + Math.random() * .2));
+  m.hp -= d; m.hit = .12; pop(m.x, m.y - 100, (cr ? '💥' : '') + d, cr ? '#ffcc4d' : '#fff', cr);
+  if(s.cpC > 0){ const c = Math.max(1, Math.round(s.atk * s.cpC / 100)); setTimeout(() => { if(m.dead || G.mon !== m) return; m.hp -= c; pop(m.x + 20, m.y - 70, '🤝' + c, '#9fe'); if(m.hp <= 0 && !m.dead) kill(m); ui(); }, 220); }
+  if(m.hp <= 0) kill(m); ui();
+}
+function monAtk(){ const m = G.mon; if(!m || m.dead) return; m.atkA = .4; G.php -= m.atk; pop(hero.x, hero.y - 130, '-' + m.atk, '#ff7a7a');
+  if(G.php <= G.pmax * CFG.pot / 100 && G.pot > 0 && G.php > 0){ G.pot--; G.php = Math.min(G.pmax, G.php + G.pmax * .25); pop(hero.x - 30, hero.y - 160, '🧪', '#9f9'); }
+  if(G.php <= 0){ die(); } ui(); }
+
+/* ===== 그리기 ===== */
+function frameOf(key, f){ const a = HF[key]; return a ? a[f % a.length] : null; }
+function drawHero(x, y, d, st, f){ if(!MO) return; const k = (st === 'atk' ? 'atk_' : 'walk_') + (d === 'l' ? 'r' : d), fr = frameOf(k, st === 'idle' ? 0 : f); if(!fr) return; const F = MO.foot, W = MO.W, H = MO.H;
+  g.save(); if(d === 'l'){ g.translate(x, 0); g.scale(-1, 1); g.drawImage(fr, -F[0] * SC, y - F[1] * SC, W * SC, H * SC); } else g.drawImage(fr, x - F[0] * SC, y - F[1] * SC, W * SC, H * SC); g.restore(); }
+function drawDL(u, seg, f, x, y, sc, flip, alpha){ if(!u || !u.im) return; const sg = dlSeg(u, seg), i = sg[0] + (seg === 'b' ? f % Math.max(1, sg[1]) : Math.min(f, sg[1] - 1)), bb = u.bb, s = sc;
+  g.save(); g.globalAlpha = alpha == null ? 1 : alpha; const dx = x - (bb[0] + (bb[2] - bb[0]) / 2) * s, dy = y - bb[3] * s;
+  if(flip){ g.translate(x, 0); g.scale(-1, 1); g.drawImage(u.im, (i % u.c) * u.w, Math.floor(i / u.c) * u.h, u.w, u.h, -(bb[0] + (bb[2] - bb[0]) / 2) * s, dy, u.w * s, u.h * s); }
+  else g.drawImage(u.im, (i % u.c) * u.w, Math.floor(i / u.c) * u.h, u.w, u.h, dx, dy, u.w * s, u.h * s);
+  g.restore(); }
+let bgIm = null, bgKey = '';
+async function bgFor(){ const k = G.hid ? 'h' + G.hid.nm : 'r' + (region() ? region().map : -1); if(k === bgKey) return; bgKey = k; bgIm = await img(G.hid ? (G.hid.img && G.hid.img.bg) : region() ? LIB.map[region().map] : null); }
+function drawBg(){
+  if(bgIm){ const s = GH / bgIm.height, w = bgIm.width * s, off = -((G.cam * .6) % w + w) % w; for(let x = off; x < GW; x += w) g.drawImage(bgIm, x, 0, w, GH); }
+  else { const sky = g.createLinearGradient(0, 0, 0, GH); sky.addColorStop(0, '#4a64b0'); sky.addColorStop(.58, '#9ec0e8'); sky.addColorStop(.58, '#5c9a4a'); sky.addColorStop(1, '#3f7334'); g.fillStyle = sky; g.fillRect(0, 0, GW, GH); }
+  const sh = g.createLinearGradient(0, TOP - 20, 0, GH); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.25)'); g.fillStyle = sh; g.fillRect(0, TOP - 20, GW, GH - TOP + 20); }
+function drawMon(m){ const sx = m.x - G.cam, a = m.dead ? Math.max(0, 1 - m.dead / .5) : 1, bob = Math.sin(m.t * 4) * 3;
+  g.save(); g.globalAlpha = a; g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(sx, m.y, m.boss ? 60 : 40, 10, 0, 0, 7); g.fill(); g.restore();
+  const lunge = m.atkA > 0 ? Math.sin((.4 - m.atkA) / .4 * Math.PI) * -40 : 0;
+  if(m.dl){ const u = m.dl.u, seg = m.dead ? 'd' : m.hit > 0 ? 'h' : m.atkA > 0 ? 'a' : 'b', f = Math.floor(m.t * 1000 / 90); drawDL(u, seg, seg === 'd' ? Math.floor(m.dead * 20) : f, sx + lunge, m.y, m.boss ? 2.6 : 2, true, a);
+    g.save(); g.globalAlpha = a; g.fillStyle = m.dl.col; g.font = '15px "Do Hyeon",sans-serif'; g.textAlign = 'center'; g.fillText(m.dl.gn, sx, m.y + 22); g.restore(); return; }
+  if(m.im){ const h = m.boss || m.hid ? 230 : 160, w = m.im.width * h / m.im.height; g.save(); g.globalAlpha = a; if(m.hit > 0) g.filter = 'brightness(2.2)'; g.drawImage(m.im, sx - w / 2 + lunge, m.y - h + bob, w, h); g.restore(); return; }
+  g.save(); g.globalAlpha = a; g.fillStyle = m.hit > 0 ? '#fff' : (m.boss ? '#d9485a' : '#7ec46a'); g.beginPath(); g.ellipse(sx + lunge, m.y - 30 + bob, m.boss ? 60 : 38, m.boss ? 55 : 32, 0, 0, 7); g.fill(); g.restore(); }
+function render(){
+  const m = G.mon; const tx = G.mode === 'auto' ? hero.x - GW * .3 : hero.x - GW * .45; if(G.mode === 'auto' || hero.x - G.cam > GW * .7 || hero.x - G.cam < GW * .2) G.cam += (tx - G.cam) * .08;
+  drawBg();
+  if(G.mode === 'walk' && hero.tx != null){ g.strokeStyle = '#fff8'; g.lineWidth = 2; g.beginPath(); g.ellipse(hero.tx - G.cam, hero.ty, 14, 5, 0, 0, 7); g.stroke(); }
+  const L = []; if(m) L.push({ y:m.y, d:() => drawMon(m) });
+  const s = stats(); if(s.cp && DLB[s.cp]){ const u = DLB[s.cp]; if(!u.im) dlPack(u.p); L.push({ y:cpPos.y - 1, d:() => drawDL(u, hero.st === 'atk' ? 'a' : 'b', Math.floor(performance.now() / 90), cpPos.x - G.cam, cpPos.y + Math.sin(performance.now() / 380) * 4, 1.2, hero.d === 'l') }); }
+  L.push({ y:hero.y, d:() => { g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(hero.x - G.cam, hero.y, 28, 8, 0, 0, 7); g.fill(); drawHero(hero.x - G.cam, hero.y, hero.d, hero.st, hero.f); } });
+  L.sort((a, b) => a.y - b.y).forEach(o => o.d());
+  fx.forEach(o => { g.globalAlpha = Math.max(0, 1 - o.a / 1.1); g.font = (o.big ? 'bold 30px' : 'bold 22px') + ' "Do Hyeon",sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#000'; const yy = o.y - o.a * 55; g.strokeText(o.t, o.x - G.cam, yy); g.fillStyle = o.c; g.fillText(o.t, o.x - G.cam, yy); g.globalAlpha = 1; });
+  if(outfitTxt){ g.font = '14px "Gowun Dodum",sans-serif'; g.textAlign = 'left'; const ls = outfitTxt.split('\n'); const w = Math.min(GW - 16, Math.max(...ls.map(s => g.measureText(s).width)) + 16); g.fillStyle = '#000a'; g.fillRect(8, 8, w, ls.length * 20 + 8); g.fillStyle = '#ffd88a'; ls.forEach((s, i) => g.fillText(s, 16, 26 + i * 20)); }
+}
+function step(dt){
+  hero.t += dt; fx.forEach(o => o.a += dt); fx = fx.filter(o => o.a < 1.1);
+  const m = G.mon; if(m){ m.t += dt; if(m.hit > 0) m.hit -= dt; if(m.atkA > 0) m.atkA -= dt; if(m.dead) m.dead += dt; }
+  const cpx = hero.x + (hero.d === 'l' ? 70 : -70), cpy = hero.y - 4; cpPos.x += (cpx - cpPos.x) * Math.min(1, dt * 4); cpPos.y += (cpy - cpPos.y) * Math.min(1, dt * 4);
+  if(!m || m.dead){ hero.st = 'idle'; if(G.mode === 'auto'){ hero.x += 60 * dt; hero.st = 'walk'; hero.d = 'r'; hero.f = Math.floor(hero.t * 1000 / (MO ? MO.dur : 180)); } return; }
+  if(hero.st === 'atk'){ hero.cd += dt; const n = (HF.atk_r || [1, 1]).length; hero.f = Math.floor(hero.cd * 1000 / (MO ? MO.dur : 180)); if(hero.f >= n){ hero.st = 'idle'; hero.cd = 0; hit(); } }
+  else {
+    const reach = 160, side = m.x >= hero.x ? -1 : 1; let gx, gy;
+    if(G.mode === 'walk' && hero.tx != null){ gx = hero.tx; gy = hero.ty; } else { gx = m.x + side * reach; gy = m.y; }
+    const dx = gx - hero.x, dy = gy - hero.y, dist = Math.hypot(dx, dy), near = Math.abs(m.x - hero.x) < reach + 20 && Math.abs(m.y - hero.y) < 40;
+    if(near && (G.mode === 'auto' || hero.tx == null || dist < 6)){ hero.tx = hero.ty = null; hero.atkT += dt; hero.d = m.x >= hero.x ? 'r' : 'l'; if(hero.atkT * 1000 >= CFG.atkMs){ hero.atkT = 0; hero.st = 'atk'; hero.cd = 0; hero.f = 0; } else { hero.st = 'idle'; } }
+    else if(dist > 4){ const sp = 150 * dt, k = Math.min(1, sp / dist); hero.x += dx * k; hero.y += dy * k; hero.d = Math.abs(dx) >= Math.abs(dy) * 1.2 ? (dx >= 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u'); hero.st = 'walk'; hero.f = Math.floor(hero.t * 1000 / (MO ? MO.dur : 180)); }
+    else { hero.tx = hero.ty = null; hero.st = 'idle'; }
+    if(near){ monT += dt; if(monT * 1000 >= CFG.monMs){ monT = 0; monAtk(); } } else monT = 0;
+  }
+}
+let last = performance.now();
+function loop(now){ const dt = Math.min(.05, (now - last) / 1000); last = now; if(!document.hidden){ step(dt); render(); } requestAnimationFrame(loop); }
+cv.addEventListener('pointerdown', e => { setMode('walk'); const r = cv.getBoundingClientRect(); hero.tx = (e.clientX - r.left) / r.width * GW + G.cam; hero.ty = Math.max(TOP, Math.min(GH - 20, (e.clientY - r.top) / r.height * GH)); });
+function setMode(m){ G.mode = m; $('b-auto').classList.toggle('on', m === 'auto'); $('b-walk').classList.toggle('on', m === 'walk'); if(m === 'auto'){ hero.tx = hero.ty = null; } }
+$('b-auto').onclick = () => setMode('auto'); $('b-walk').onclick = () => { setMode('walk'); toast('화면을 누르면 그쪽으로 걸어가요'); };
+$('b-sync').onclick = async () => { await flush(); await readSave(); await buildHero(); const s = stats(); G.pmax = s.hp; G.php = Math.min(G.php, G.pmax); ui(); toast('🔄 끝말잇기 가방을 다시 읽었어요'); };
+/* 스테이지 고르기 (이 RPG에서 깬 곳까지) */
+$('b-stage').onclick = () => { const o = document.createElement('div'); o.className = 'ov'; const c = Math.max(1, R.clr); let h = '<div class="box"><h2>🗺 스테이지 <button type="button" data-x>✕</button></h2><p class="note">깬 스테이지까지 아무 데서나 시작해요 · 막히면 낮은 곳에서 골드·큐브를 모아 끝말잇기에서 강화해요</p><div class="sg">';
+  for(let i = 1; i <= c + 1 && i <= Math.max(1, R.clr + 1); i++) h += '<button type="button" data-s="' + i + '" class="' + (i === G.st + 1 ? 'on' : '') + '">' + i + '</button>';
+  o.innerHTML = h + '</div></div>'; document.body.appendChild(o); o.onclick = e => { const b = e.target.closest('button'); if(e.target === o || (b && b.hasAttribute('data-x'))){ o.remove(); return; } if(b && b.dataset.s){ G.st = +b.dataset.s - 1; R.pick = G.st + 1; LS.set('rpg_prog', R); G.wave = 0; G.boss = false; G.hid = null; G.pot = 3; G.php = G.pmax; G.mon = null; spawn(); o.remove(); toast('STAGE ' + (G.st + 1) + '부터'); } }; };
+/* 헤어 (끝말잇기 가방에 헤어가 없어서 여기서 골라요) */
+$('b-hair').onclick = async () => { if(!MO || !MO.cats.hair){ toast('헤어 그림이 아직 없어요'); return; } const o = document.createElement('div'); o.className = 'ov'; o.innerHTML = '<div class="box"><h2>💇 헤어 <button type="button" data-x>✕</button></h2><div class="hg" id="hg"></div></div>'; document.body.appendChild(o);
+  o.onclick = e => { const b = e.target.closest('button'); if(e.target === o || (b && b.hasAttribute('data-x'))) o.remove(); };
+  const tb = MO.thumbBox, cur = LS.get('rpg_hair', null), list = MO.cats.hair, hg = o.querySelector('#hg');
+  const none = document.createElement('button'); none.type = 'button'; none.textContent = '기본'; none.style.cssText = 'aspect-ratio:' + tb[2] + '/' + tb[3] + ';color:#fff;font-family:var(--disp)'; none.onclick = async () => { LS.set('rpg_hair', null); await buildHero(); o.remove(); }; hg.append(none);
+  const packs = {}; for(const a of list){ if(!packs[a[1]]) packs[a[1]] = await moPack('hair', a[1]); const pk = packs[a[1]]; if(!pk || !o.isConnected) continue; const tc = pk.tc, rows = Math.ceil(pk.items.length / tc), i = a[2];
+    const b = document.createElement('button'); b.type = 'button'; b.title = a[0]; b.style.aspectRatio = tb[2] + '/' + tb[3]; if(cur === a[0]) b.className = 'on'; const s = document.createElement('i'); s.style.backgroundImage = 'url(' + pk.thumb + ')'; s.style.backgroundSize = (tc * 100) + '% ' + (rows * 100) + '%'; s.style.backgroundPosition = (tc > 1 ? (i % tc) / (tc - 1) * 100 : 0) + '% ' + (rows > 1 ? Math.floor(i / tc) / (rows - 1) * 100 : 0) + '%'; b.append(s);
+    b.onclick = async () => { LS.set('rpg_hair', a[0]); await buildHero(); o.remove(); toast('💇 ' + a[0]); }; hg.append(b); } };
+
+/* ===== 시작 ===== */
+lmsg('가방 읽는 중…'); await readSave();
+lmsg('영웅 옷 입히는 중…'); await buildHero();
+fit(); const s0 = stats(); G.pmax = s0.hp; G.php = G.pmax; hero.y = TOP + (GH - TOP) * .45; cpPos = { x:hero.x - 70, y:hero.y };
+await spawn(); setInterval(bgFor, 500); bgFor();
+$('load').remove();
+if(!S.share) toast('끝말잇기를 한 번 열면 내 공격력·변신·동료가 여기도 들어와요');
+requestAnimationFrame(loop);
+})();
+</script>
+<style id="jd-inst-css">
+#jd-install{display:none !important}
+#jd-inst-bar{position:fixed;left:0;right:0;top:0;z-index:2147483000;display:none;align-items:center;gap:10px;padding:calc(7px + env(safe-area-inset-top,0px)) 12px 7px;background:linear-gradient(180deg,#ffd84d,#ffb300);color:#2a1a00;border-bottom:3px solid #140a22;box-shadow:0 3px 10px rgba(0,0,0,.4);font:900 .95rem/1.2 'Jua','Pretendard',sans-serif}
+#jd-inst-bar.on{display:flex}
+#jd-inst-bar img{width:30px;height:30px;border-radius:8px;border:2px solid #140a22;flex:none}
+#jd-inst-bar span{flex:1;min-width:0}
+#jd-inst-bar small{display:block;font-size:.68rem;font-weight:700;opacity:.8}
+#jd-inst-bar button,#jd-inst-pop button.go{border:2.5px solid #140a22;border-radius:12px;background:#e5383b;color:#fff;font:900 .95rem 'Jua','Pretendard',sans-serif;padding:8px 16px;box-shadow:0 3px 0 #140a22;cursor:pointer;flex:none}
+#jd-inst-bar button:active,#jd-inst-pop button.go:active{transform:translateY(2px);box-shadow:0 1px 0 #140a22}
+html.jd-inst-on body{padding-top:calc(48px + env(safe-area-inset-top,0px))}
+#jd-inst-pop{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(6,4,20,.72)}
+#jd-inst-pop.on{display:flex}
+#jd-inst-pop .bx{width:min(360px,100%);background:#1d1238;color:#fff;border:3px solid #ffd84d;border-radius:22px;padding:22px 18px 16px;text-align:center;box-shadow:0 0 0 4px #0b0613,0 14px 40px rgba(0,0,0,.6);font-family:'Jua','Pretendard',sans-serif}
+#jd-inst-pop img{width:84px;height:84px;border-radius:22px;border:3px solid #fff4df;box-shadow:0 6px 0 #0b0613}
+#jd-inst-pop h3{margin:12px 0 4px;font-size:1.3rem;color:#ffd84d;font-weight:400}
+#jd-inst-pop p{margin:4px 0 14px;font-size:.92rem;line-height:1.5;color:#e8e0ff}
+#jd-inst-pop button.go{width:100%;padding:13px;font-size:1.1rem}
+#jd-inst-pop button.later{margin-top:10px;background:none;border:0;color:#b9b0d8;font:700 .85rem 'Jua',sans-serif;cursor:pointer;padding:6px}
+html.jd-inst-on #lt-bag{top:calc(48px + env(safe-area-inset-top,0px))}
+#jd-inst-pop .guide{display:none;text-align:left;background:#2b1d52;border-radius:12px;padding:10px 12px;font-size:.88rem;line-height:1.6;margin-bottom:12px}
+</style>
+<script id="jd-inst-js">
+(function(){
+  /* 설치 안내: 위쪽에 "설치하기" 바가 계속 떠 있고, 열자마자 설치 팝업이 떠요. 설치되면 둘 다 사라져요. */
+  var dp = null, bar, pop, done = false;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if(standalone) return;
+  var ua = navigator.userAgent, isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  /* 안드로이드에서 크롬이 아닌 곳(카카오톡·네이버 앱 안, 삼성 인터넷 등)이면 '설치하기'를 누를 때 크롬으로 바로 열어요.
+     카카오톡·네이버·인스타 같은 앱 안 브라우저에서 열면 열자마자 자동으로 크롬으로 넘어가요. */
+  var isAndroid = /Android/i.test(ua);
+  var isChrome = isAndroid && /Chrome\//.test(ua) && !/SamsungBrowser|EdgA|OPR\/|Whale|NAVER|KAKAOTALK|DaumApps|FBAN|FBAV|Instagram|Line\/|; wv\)/i.test(ua);
+  var isInApp = isAndroid && /KAKAOTALK|NAVER\(inapp|FBAN|FBAV|Instagram|Line\/|DaumApps|; wv\)/i.test(ua);
+  function toChrome(){
+    var u = location.href.split('#')[0];
+    location.href = 'intent://' + u.replace(/^https?:\/\//, '') + '#Intent;scheme=' + (location.protocol === 'http:' ? 'http' : 'https') + ';package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u) + ';end';
+    if(/KAKAOTALK/i.test(ua)) setTimeout(function(){ if(!document.hidden) location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(u); }, 1500);
+  }
+  if(isInApp){ try{ if(!sessionStorage.getItem('jd-to-chrome')){ sessionStorage.setItem('jd-to-chrome', '1'); toChrome(); } }catch(_){ } }
+  function mk(){
+    bar = document.createElement('div'); bar.id = 'jd-inst-bar';
+    bar.innerHTML = '<img src="icon-192.png" alt=""><span>📲 앱으로 설치하기<small>한 번 설치하면 인터넷 없이도 열려요</small></span><button type="button">설치하기</button>';
+    pop = document.createElement('div'); pop.id = 'jd-inst-pop';
+    pop.innerHTML = '<div class="bx"><img src="icon-512.png" alt=""><h3>정도 RPG 앱 설치</h3><p>설치하면 홈 화면에서 바로 열리고,<br>인터넷이 없어도 할 수 있어요!</p><div class="guide"></div><button type="button" class="go">📲 설치하기</button><button type="button" class="later">나중에</button></div>';
+    document.body.appendChild(bar); document.body.appendChild(pop);
+    bar.querySelector('button').onclick = act; pop.querySelector('.go').onclick = act;
+    pop.querySelector('.later').onclick = function(){ pop.classList.remove('on'); };
+    show();
+  }
+  function show(){ if(done) return; bar.classList.add('on'); document.documentElement.classList.add('jd-inst-on'); }
+  function hideAll(){ done = true; if(bar) bar.classList.remove('on'); if(pop) pop.classList.remove('on'); document.documentElement.classList.remove('jd-inst-on'); }
+  function guide(){
+    var g = pop.querySelector('.guide');
+    g.innerHTML = isIOS
+      ? '아이폰은 자동 설치가 막혀 있어요. 한 번만 이렇게 해주세요:<br>① Safari 아래의 <b>공유(⬆︎)</b> 누르기<br>② <b>홈 화면에 추가</b> 누르기<br>③ <b>추가</b> 누르기'
+      : '이 브라우저는 자동 설치 창을 아직 못 띄웠어요. <b>Chrome</b>(또는 삼성 인터넷)에서 열거나, 브라우저 메뉴(⋮)에서 <b>앱 설치 / 홈 화면에 추가</b>를 눌러주세요.';
+    g.style.display = 'block'; pop.querySelector('.go').style.display = 'none'; pop.classList.add('on');
+  }
+  function act(){
+    if(dp){
+      var e = dp; dp = null; pop.classList.remove('on'); e.prompt();
+      (e.userChoice || Promise.resolve()).then(function(c){ if(!(c && c.outcome === 'accepted')) { try{ window._jdDpAgain = true; }catch(_){} } }).catch(function(){});
+    } else if(isAndroid && !isChrome){ toChrome(); }
+    else guide();
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); dp = e;
+    if(bar){ var b = pop.querySelector('.go'); b.style.display = ''; pop.querySelector('.guide').style.display = 'none'; }
+    try{ if(!sessionStorage.getItem('jd-inst-popped')){ sessionStorage.setItem('jd-inst-popped', '1'); setTimeout(function(){ if(!done && pop) pop.classList.add('on'); }, 700); } }catch(_){ if(pop) pop.classList.add('on'); }
+  });
+  window.addEventListener('appinstalled', hideAll);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mk); else mk();
+  /* 자동 설치 창을 못 쓰는 환경(아이폰 등)은 열자마자 안내 팝업 */
+  window.addEventListener('load', function(){ setTimeout(function(){ if(!done && !dp && isIOS){ try{ if(sessionStorage.getItem('jd-inst-popped')) return; sessionStorage.setItem('jd-inst-popped','1'); }catch(_){} guide(); } }, 1800); });
+})();
+</script>
+<script>if('serviceWorker' in navigator && location.protocol==='https:') addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script>
+</body>
+</html>

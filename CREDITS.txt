@@ -1,0 +1,9 @@
+정도 RPG에 쓴 남의 것들
+- 3D 엔진: three.js (MIT 라이선스) https://github.com/mrdoob/three.js
+- 하늘(sky-), 나무·기둥·등불(prop-), 구름(fx-), 효과음(sfx-):
+  듀얼리스트 오픈소스 https://github.com/open-duelyst/duelyst — CC0 (누구나 자유롭게 사용 가능)
+- 글로브뷰 방식 참고: RePlanet(에버플래닛 리메이크) https://github.com/eesdfdev/Replanet (코드 방식만 참고, 그림은 안 씀)
+- 보스 패턴·몬스터 정보창·스킬 연출 아이디어 참고: 어드벤처 테일 개발 노트 https://github.com/lgm1007/rpg-game-develop-note
+- 도트 땅·나무·풀·바위(pix-): AsLib (피포야 그림) https://github.com/AsPJT/AsLib — CC0
+- 브레이크(방패 깨기) 방식 참고: 옥토패스 트래블러 스타일 턴제 RPG https://github.com/i-Jiro/Unity3D-Turn_Based_RPG (방식만 참고)
+- 스테이지 배경음악(bgm-01-05.mp3 ~ bgm-46-50.mp3): 직접 만든 오리지널 곡 (5스테이지마다 1곡)

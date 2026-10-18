@@ -1,0 +1,178 @@
+/* 정도 RPG — 조작 · 화면 위 정보 · 메뉴(가방·변신·뽑기·합성·스테이지·설정) · 운영자 모드 · 에디터 */
+'use strict';
+(function(J){
+const $ = J.$, G = J.G, H = J.HERO, fmt = J.fmt, clamp = J.clamp;
+
+/* ===== 조작: 조이스틱 · 버튼 · 키보드 ===== */
+const INP = J.INP = { x:0, y:0, atk:false, kb:{} };
+/* [v10] 조이스틱·버튼을 만져도 자동은 안 풀려요 — ⚔ 자동 / 🕹 직접 버튼을 눌러야만 바뀌어요 */
+function manual(){ J.SND.ctx(); }
+function autoUi(){ const b = $('b-auto'); b.classList.toggle('on', G.auto); b.textContent = G.auto ? '⚔ 자동' : '🕹 직접'; }
+{ const Jy = $('joy'), base = Jy.querySelector('.base'), knob = Jy.querySelector('.knob'); let id = null, ox = 0, oy = 0;
+  Jy.addEventListener('pointerdown', e => { if(id != null) return; id = e.pointerId; Jy.setPointerCapture(id); const r = Jy.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; base.style.left = knob.style.left = ox + 'px'; base.style.top = knob.style.top = oy + 'px'; Jy.classList.add('on'); Jy.querySelector('.jhint').style.display = 'none'; manual(); });
+  Jy.addEventListener('pointermove', e => { if(e.pointerId !== id) return; const r = Jy.getBoundingClientRect(); let dx = e.clientX - r.left - ox, dy = e.clientY - r.top - oy; const l = Math.hypot(dx, dy), M = 50; if(l > M){ dx *= M / l; dy *= M / l; } knob.style.left = (ox + dx) + 'px'; knob.style.top = (oy + dy) + 'px'; INP.x = dx / M; INP.y = dy / M; });
+  const end = e => { if(e.pointerId !== id) return; id = null; INP.x = INP.y = 0; Jy.classList.remove('on'); };
+  Jy.addEventListener('pointerup', end); Jy.addEventListener('pointercancel', end); }
+function btn(id, fn, hold){ const b = $(id); b.addEventListener('pointerdown', e => { e.preventDefault(); try{ b.setPointerCapture(e.pointerId); }catch(_){ } b.classList.add('dn'); manual(); fn(); if(hold) INP.atk = true; });
+  const up = () => { b.classList.remove('dn'); if(hold) INP.atk = false; }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('contextmenu', e => e.preventDefault()); }
+btn('b-a', () => J.doAttack(), true); btn('b-s1', () => J.doSkill1()); btn('b-s2', () => J.doSkill2()); btn('b-s3', () => J.doSkill3()); btn('b-r', () => J.doRoll());
+$('pot').onclick = () => { manual(); J.usePot(); };
+$('b-auto').onclick = () => { J.SND.ctx(); G.auto = !G.auto; autoUi(); J.toast(G.auto ? '⚔ 자동 사냥! 🕹 직접 버튼을 눌러야 풀려요' : '🕹 직접 조종'); };
+addEventListener('keydown', e => { if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(); if(INP.kb[k]) return; INP.kb[k] = true;
+  if(['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s'].includes(k)) manual();
+  if(k === 'j' || k === ' '){ manual(); INP.atk = true; J.doAttack(); } if(k === 'k'){ manual(); J.doSkill1(); } if(k === 'l'){ manual(); J.doSkill2(); } if(k === 'u'){ manual(); J.doSkill3(); } if(k === 'shift' || k === 'i'){ manual(); J.doRoll(); } });
+addEventListener('keyup', e => { const k = e.key.toLowerCase(); INP.kb[k] = false; if(k === 'j' || k === ' ') INP.atk = false; });
+J.keyVec = () => { const kb = INP.kb; return [(kb.arrowright || kb.d ? 1 : 0) - (kb.arrowleft || kb.a ? 1 : 0), (kb.arrowdown || kb.s ? 1 : 0) - (kb.arrowup || kb.w ? 1 : 0)]; };
+
+/* ===== 화면 위 정보 ===== */
+let uiT = 0, lastG = -1;
+J.uiTick = function(dt){ uiT += dt; if(uiT < .1) return; uiT = 0;
+  const p = Math.max(0, G.php / G.pmax * 100); $('php').style.width = p + '%'; $('phpu').style.width = p + '%'; $('phpt').textContent = Math.max(0, Math.round(G.php)) + ' / ' + fmt(G.pmax); $('pot').textContent = '🧪' + G.pot;
+  $('stg').textContent = 'STAGE ' + (G.st + 1) + (G.hid ? ' 🕳' : '') + (G.repeat ? ' 🔁' : ''); $('thn').textContent = G.hid ? '히든 보스' : (G.theme ? G.theme.nm : '');
+  const q = $('quota'); if(G.phase === 'field'){ q.querySelector('i').style.width = Math.min(100, G.kills / G.quota * 100) + '%'; q.querySelector('span').textContent = '사냥 ' + G.kills + ' / ' + G.quota + ' → 보스 문'; q.classList.remove('gate'); }
+  else if(G.phase === 'gate'){ q.querySelector('i').style.width = '100%'; q.querySelector('span').textContent = '🌀 보스 문 열림! 오른쪽 끝으로 →'; q.classList.add('gate'); }
+  else { q.querySelector('i').style.width = '100%'; q.querySelector('span').textContent = G.phase === 'clear' ? '⭐ 클리어!' : '👑 보스전'; q.classList.add('gate'); }
+  const L = J.L; const gold = L ? L.gold : 0; if(gold !== lastG){ lastG = gold; $('gold').textContent = fmt(gold); }
+  const dx = L && L.dlx; $('t1').textContent = dx ? (dx.t1 | 0) : 0; $('t2').textContent = dx ? (dx.t2 | 0) : 0;
+  const set = (id, v, max) => { const b = $(id), c = clamp(v / max, 0, 1).toFixed(3); if(b._c !== c){ if(b._c > 0 && +c === 0){ b.classList.remove('rdy'); void b.offsetWidth; b.classList.add('rdy'); } b._c = c; b.style.setProperty('--cd', c); } };
+  set('b-s1', H.cd.s1, J.CFG.s1cd); set('b-s2', H.cd.s2, J.CFG.s2cd); set('b-s3', H.cd.s3, J.CFG.s3cd); set('b-r', H.cd.r, J.CFG.roll);
+  infoBox(); };
+/* 창이 '눈에 보일 때만' 멈춰요 (숨겨진 창이 남아 있어도 게임이 멈추지 않게) */
+J.checkPause = () => { for(const e of document.querySelectorAll('#lt-bag, #dx-ov, #sf-ov, #cs-ov, #cp-ov, #res-ov, #st-ov, .ov')){ if(e.id === 'lt-bag' && !e.classList.contains('on')) continue; if(!e.getClientRects().length) continue; const cs = getComputedStyle(e); if(cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue; return true; } return false; };
+/* 폰 브라우저 확대(두 번 톡·두 손가락)를 막아요 — 버튼을 빨리 눌러도 화면이 커지지 않게 */
+(function(){ let lastT = 0;
+  document.addEventListener('touchend', e => { const t = e.target; if(t && (/INPUT|TEXTAREA|SELECT|BUTTON|LABEL|A/.test(t.tagName) || (t.closest && t.closest('button,label,a,input,select,[onclick]')))) return; const n = Date.now(); if(n - lastT < 350) e.preventDefault(); lastT = n; }, { passive:false });
+  document.addEventListener('touchstart', e => { if(e.touches.length > 1) e.preventDefault(); }, { passive:false });
+  document.addEventListener('touchmove', e => { if(e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive:false });
+  ['gesturestart','gesturechange','dblclick'].forEach(k => document.addEventListener(k, e => e.preventDefault(), { passive:false }));
+  if(window.visualViewport) visualViewport.addEventListener('resize', () => { if(visualViewport.scale > 1.01) J.toast('화면이 확대됐어요. 두 손가락으로 오므리면 돌아와요'); });
+})();
+/* 몬스터 정보 박스 (참고: 어드벤처 테일 노트 03 — 위 가운데에 초상화·이름·체력, 깎인 만큼 노란 흔적) */
+let ibM = null, ibTrail = 1;
+function infoBox(){ const m = J.target, box = $('ibox'); if(!m || (m.st === 'dead' && m.t > .6)){ box.classList.remove('on'); ibM = null; return; }
+  box.classList.add('on'); box.classList.toggle('ibboss', !!m.boss);
+  if(ibM !== m){ ibM = m; ibTrail = m.hp / m.max; $('ibn').textContent = m.nm || '몬스터'; const g = $('ibs'); g.textContent = m.dl ? m.dl.gn : m.el ? '정예' : m.boss ? '보스' : '';
+    g.style.color = m.dl ? m.dl.col : m.el ? '#ffcc4d' : '#ff8a8a'; portrait(m); }
+  $('ibsh').textContent = m.shMax ? (m.st === 'broken' ? '💫 BREAK!' : '방패 ' + m.sp) : '';
+  const p = Math.max(0, m.hp / m.max); ibTrail = Math.max(p, ibTrail - .02); $('ibh').style.width = (p * 100) + '%'; $('ibt').style.width = (ibTrail * 100) + '%'; $('ibv').textContent = fmt(Math.max(0, m.hp)) + ' / ' + fmt(m.max); }
+function portrait(m){ const c = $('ibp'), x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); x.imageSmoothingEnabled = false;
+  if(m.u && m.u.im){ const u = m.u, bb = u.bb, w = bb[2] - bb[0], h = bb[3] - bb[1], s = Math.min(c.width / w, c.height / h) * .95; x.drawImage(u.im, bb[0], bb[1], w, h, (c.width - w * s) / 2, (c.height - h * s) / 2, w * s, h * s); }
+  else if(m.im){ const s = Math.min(c.width / m.im.width, c.height / m.im.height); x.imageSmoothingEnabled = true; x.drawImage(m.im, (c.width - m.im.width * s) / 2, (c.height - m.im.height * s) / 2, m.im.width * s, m.im.height * s); } }
+
+/* ===== 창 띄우기 ===== */
+function overlay(html){ const o = document.createElement('div'); o.className = 'ov'; o.innerHTML = html; document.body.appendChild(o); J.SND.play('ui');
+  const close = () => { o.remove(); };
+  o.addEventListener('click', e => { const b = e.target.closest('button'); if(e.target === o || (b && b.hasAttribute('data-x'))) close(); }); return { o, close }; }
+J.overlay = overlay;
+function needLoot(){ if(!J.L){ J.toast('끝말잇기 가방을 못 불러왔어요. 끝말잇기를 한 번 연 다음 다시 열어 주세요'); return false; } return true; }
+$('m-bag').onclick = () => { if(needLoot()) J.L.openBag(); };
+$('m-dlx').onclick = () => { if(needLoot()) J.L.dlxOpen('equip'); };
+$('m-gacha').onclick = () => { if(needLoot()) J.L.dlxOpen('gacha'); };
+$('m-syn').onclick = () => { if(needLoot()) J.L.dlxOpen('syn'); };
+$('m-stage').onclick = () => stageMenu();
+$('m-set').onclick = () => setMenu();
+function stageMenu(){ const R = J.prog(), c = Math.max(1, R.clr + 1), adm = isAdmin(); let h = '<div class="box"><h2>🗺 스테이지 <button type="button" data-x>✕</button></h2><p class="note">깬 스테이지까지 아무 데서나 시작해요. 막히면 낮은 곳에서 골드·큐브를 모아 강화해요.' + (adm ? '\n(운영자: 모든 스테이지 열림)' : '') + '</p><div class="mn"><button type="button" data-rep>' + (G.repeat ? '🔁 선택 스테이지만 반복: 켬 (눌러서 끄기)' : '🔁 선택 스테이지만 반복: 끔 (눌러서 켜기)') + '</button></div><div class="sg">';
+  const n = adm ? Math.max(c, 100) : c; for(let i = 1; i <= n; i++) h += '<button type="button" data-s="' + i + '" class="' + (i === G.st + 1 ? 'on' : '') + '">' + i + '</button>';
+  const { o, close } = overlay(h + '</div></div>'); o.addEventListener('click', async e => { if(e.target.closest('[data-rep]')){ G.repeat = !G.repeat; J.LS.set('rpg_repeat', G.repeat); close(); J.toast(G.repeat ? '🔁 지금 스테이지만 계속 반복해요' : '다음 스테이지로 넘어가요'); return; } const b = e.target.closest('[data-s]'); if(!b) return; close(); await J.goStage(+b.dataset.s - 1); J.toast('STAGE ' + b.dataset.s + '부터'); }); }
+function setMenu(){ const tfL = J.LS.get('rpg_tflook', false);
+  const { o, close } = overlay('<div class="box"><h2>⚙ 설정 <button type="button" data-x>✕</button></h2><div class="mn">' +
+    '<button type="button" data-m="snd">' + (J.SND.on ? '🔊 효과음 끄기' : '🔇 효과음 켜기') + '</button><button type="button" data-m="bgm">' + (J.SND.mus ? '🎵 음악 끄기' : '🎵 음악 켜기') + '</button>' +
+    '<button type="button" data-m="tf">' + (tfL ? '🧍 내 장비 모습으로' : '🦸 변신 모습으로 싸우기') + '</button><button type="button" data-m="hair">💇 헤어</button>' +
+    '<button type="button" data-m="diag">🔍 그림 상태</button><button type="button" data-m="help">❓ 하는 법</button><button type="button" data-m="admin">' + (isAdmin() ? '🛠 운영자 메뉴' : '🔐 운영자 모드') + '</button></div>' +
+    (J.outfitMiss && J.outfitMiss.length ? '<p class="note">아직 움직이는 그림이 없는 장비예요 (자무주 수집기로 받으면 나와요)\n' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '</p>' : '') + '</div>');
+  o.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if(!b) return; const m = b.dataset.m; close();
+    if(m === 'snd'){ J.SND.on = !J.SND.on; J.toast(J.SND.on ? '🔊 효과음 켰어요' : '🔇 효과음 껐어요'); }
+    else if(m === 'bgm'){ J.SND.mus = !J.SND.mus; J.toast(J.SND.mus ? '🎵 음악 켰어요' : '음악 껐어요'); }
+    else if(m === 'tf'){ const s = J.stats(); if(!tfL && !s.tf){ J.toast('먼저 🦸 변신·동료에서 변신 카드를 끼워 주세요'); return; } J.LS.set('rpg_tflook', !tfL); J.refreshHero(); }
+    else if(m === 'hair') hairMenu(); else if(m === 'help') help(); else if(m === 'diag') diag(); else if(m === 'admin') adminMenu(); }); }
+function diag(){ const L = J.L, A = J.G.A || {}, eq = L && L.eq ? Object.keys(L.eq).length : 0, dlLoaded = J.DL ? J.DL.units.filter(u => u.im).length : 0;
+  const rows = [
+    ['끝말잇기 연결', J.LIB.map.length ? '✅ 됨' : '❌ 못 읽음 (인터넷 확인 후 다시 열기)'],
+    ['스타포스 코드 버전', window.JD_SF_VER ? '✅ ' + window.JD_SF_VER : '⚠ 옛 버전 (끝말잇기를 최신으로 올린 뒤, RPG를 완전히 닫았다 다시 열기)'],
+    ['가방·강화·변신', L ? '✅ 됨' : '❌ 안 됨'],
+    ['아이템 목록', L && L.pack ? '✅ ' + (L.pack.items ? L.pack.items.length : 0) + '개' : '❌ 끝말잇기를 한 번 열어 주세요'],
+    ['맵·몬스터 그림', J.LIB.map.length + '맵 · 몬스터 ' + J.LIB.mob.length + ' · 이번 판 ' + (A.mob ? A.mob.length : 0) + '종'],
+    ['변신·동료 그림', J.DL ? '목록 ' + J.DL.units.length + '명 · 받은 것 ' + dlLoaded + '명' : '❌ 목록 못 받음'],
+    ['이펙트', Object.keys(J.FX).length + '개'],
+    ['영웅 그림', J.HERO.tfU ? '🦸 변신 모습' : J.HERO.dress ? '👕 옷 입힌 그림 (걷기 그림 없는 장비가 있어서)' : '🚶 걷기·공격 그림'],
+    ['걷기 그림 없는 장비', (J.outfitMiss && J.outfitMiss.length) ? J.outfitMiss.length + '개' : '없음']
+  ];
+  overlay('<div class="box"><h2>🔍 그림 상태 <button type="button" data-x>✕</button></h2><table class="dg">' + rows.map(r => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>').join('') + '</table>' + (J.outfitMiss && J.outfitMiss.length ? '<p class="note">' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '\n→ 자무주 수집기로 이 장비의 걷기 그림을 받으면 움직이는 모습이 나와요</p>' : '') + '<div class="mn"><button type="button" data-d="reload">🔄 다시 불러오기</button><button type="button" data-x>닫기</button></div></div>').o.addEventListener('click', e => { if(e.target.closest('[data-d="reload"]')) location.reload(); }); }
+function help(){ overlay('<div class="box"><h2>❓ 하는 법 <button type="button" data-x>✕</button></h2><p class="note">🕹 왼쪽 아래를 손가락으로 끌면 걸어요 (앞뒤로도 움직여요)\n⚔ 공격: 누르고 있으면 1·2·3타 연속! 3타는 적을 띄워요\n🌀 회오리: 둘레를 3번 베어요\n⚡ 뇌전: 적 무리 가운데로 뛰어들어 번개!\n☄ 운석: 하늘에서 운석이 떨어져요\n💨 구르기: 구르는 동안은 안 맞아요\n\n❗ 몬스터 머리 위 느낌표 = 곧 때려요 → 먼저 때리면 끊어요\n🟥 보스가 바닥에 그린 빨간 곳 = 맞는 곳. 빨리 빠져나와요\n🟩 초록 원 = 안전한 곳\n🛡 방패가 있는 몬스터는 계속 때려서 방패를 다 깨면 BREAK! → 기절하고 데미지 1.5배 (치명타·스킬은 2칸씩 깨요)\n\n🗺 맵 곳곳의 몬스터를 잡으면 보스 문이 열려요 → 오른쪽 끝 빛기둥으로!\n⚔ 자동을 켜면 알아서 싸우고 피해요\n🎒 가방·🦸 변신·🎰 뽑기·⚗ 합성은 끝말잇기와 똑같고 저장도 같이 돼요</p></div>'); }
+async function hairMenu(){ const MO = J.MO; if(!MO || !MO.cats.hair){ J.toast('헤어 그림이 아직 없어요'); return; } const { o, close } = overlay('<div class="box"><h2>💇 헤어 <button type="button" data-x>✕</button></h2><div class="hg"></div></div>');
+  const tb = MO.thumbBox, cur = J.LS.get('rpg_hair', null), list = MO.cats.hair, hg = o.querySelector('.hg');
+  const none = document.createElement('button'); none.type = 'button'; none.textContent = '기본'; none.style.cssText = 'aspect-ratio:' + tb[2] + '/' + tb[3] + ';color:#fff;font-family:var(--disp)'; none.onclick = () => { J.LS.set('rpg_hair', null); close(); }; hg.append(none);
+  const packs = {}; for(const a of list){ if(!packs[a[1]]) packs[a[1]] = await J.moPack('hair', a[1]); const pk = packs[a[1]]; if(!pk || !o.isConnected) continue; const tc = pk.tc, rows = Math.ceil(pk.items.length / tc), i = a[2];
+    const b = document.createElement('button'); b.type = 'button'; b.title = a[0]; b.style.aspectRatio = tb[2] + '/' + tb[3]; if(cur === a[0]) b.className = 'on'; const s = document.createElement('i'); s.style.backgroundImage = 'url(' + pk.thumb + ')'; s.style.backgroundSize = (tc * 100) + '% ' + (rows * 100) + '%'; s.style.backgroundPosition = (tc > 1 ? (i % tc) / (tc - 1) * 100 : 0) + '% ' + (rows > 1 ? Math.floor(i / tc) / (rows - 1) * 100 : 0) + '%'; b.append(s);
+    b.onclick = () => { J.LS.set('rpg_hair', a[0]); close(); J.toast('💇 ' + a[0]); }; hg.append(b); } }
+
+/* ===== 운영자 모드 (비밀번호) ===== */
+const hash = s => { let h = 5381; for(const ch of String(s)) h = ((h << 5) + h + ch.codePointAt(0)) | 0; return String(h >>> 0); };
+const DEF_PW = hash('jungdo2');
+function isAdmin(){ try{ return sessionStorage.getItem('rpg_admin') === '1'; }catch(_){ return false; } }
+function adminMenu(){ if(!isAdmin()){ const { o, close } = overlay('<div class="box"><h2>🔐 운영자 모드 <button type="button" data-x>✕</button></h2><p class="note">운영자 비밀번호를 넣어 주세요.</p><input id="apw" type="password" class="inp" autocomplete="off"><div class="mn" style="margin-top:8px"><button type="button" id="apok">들어가기</button></div></div>');
+    const go = () => { const v = o.querySelector('#apw').value; if(hash(v) === (J.LS.get('rpg_admin_pw', null) || DEF_PW)){ try{ sessionStorage.setItem('rpg_admin', '1'); }catch(_){ } close(); J.toast('🛠 운영자 모드 켜짐'); adminMenu(); document.body.classList.add('admin'); } else J.toast('비밀번호가 달라요'); };
+    o.querySelector('#apok').onclick = go; o.querySelector('#apw').onkeydown = e => { if(e.key === 'Enter') go(); }; setTimeout(() => o.querySelector('#apw').focus(), 50); return; }
+  const a = G.admin; const { o, close } = overlay('<div class="box"><h2>🛠 운영자 메뉴 <button type="button" data-x>✕</button></h2><div class="mn">' +
+    '<button type="button" data-a="god" class="' + (a.god ? 'on' : '') + '">🛡 무적 ' + (a.god ? 'ON' : 'OFF') + '</button><button type="button" data-a="one" class="' + (a.one ? 'on' : '') + '">💥 한 방 ' + (a.one ? 'ON' : 'OFF') + '</button>' +
+    '<button type="button" data-a="gate">🌀 보스 문 열기</button><button type="button" data-a="boss">👑 보스 바로</button>' +
+    '<button type="button" data-a="kill">☠ 몬스터 다 쓰러뜨리기</button><button type="button" data-a="stage">🗺 스테이지 이동</button>' +
+    '<button type="button" data-a="gold">💰 골드 +100만</button><button type="button" data-a="tk">🎫 뽑기권 +10장씩</button>' +
+    '<button type="button" data-a="cube">🔷 큐브 +10개씩</button><button type="button" data-a="full">❤ 체력·물약 가득</button>' +
+    '<button type="button" data-a="edit">✏ 숫자 에디터</button><button type="button" data-a="pw">🔑 비밀번호 바꾸기</button>' +
+    '<button type="button" data-a="off" style="grid-column:1/-1">운영자 모드 끄기</button></div><p class="note">운영자 모드는 이 폰·이 창에서만 켜져요. 앱을 다시 열면 꺼져요.</p></div>');
+  o.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; const k = b.dataset.a, L = J.L;
+    if(k === 'god'){ a.god = !a.god; b.classList.toggle('on', a.god); b.textContent = '🛡 무적 ' + (a.god ? 'ON' : 'OFF'); return; }
+    if(k === 'one'){ a.one = !a.one; b.classList.toggle('on', a.one); b.textContent = '💥 한 방 ' + (a.one ? 'ON' : 'OFF'); return; }
+    close();
+    if(k === 'gate') J.adminGate(); else if(k === 'boss') J.adminBoss(); else if(k === 'kill') J.adminKillAll(); else if(k === 'stage') stageMenu();
+    else if(k === 'gold'){ if(L){ L.addGold(1000000); J.toast('💰 +100만'); } }
+    else if(k === 'tk'){ if(L && L.dlx){ L.dlx.t1 = (L.dlx.t1 | 0) + 10; L.dlx.t2 = (L.dlx.t2 | 0) + 10; J.kset('dlx', L.dlx); J.toast('🎫🎟 +10장씩'); } }
+    else if(k === 'cube'){ if(L){ L.addCubes({ sus:10, red:10, black:10 }); J.toast('🔷🟥⬛ +10개씩'); } }
+    else if(k === 'full'){ G.php = G.pmax; G.pot = J.CFG.pots; }
+    else if(k === 'edit') editor();
+    else if(k === 'pw'){ const n = prompt('새 운영자 비밀번호 (4글자 이상)'); if(n && n.length >= 4){ J.LS.set('rpg_admin_pw', hash(n)); J.toast('🔑 바꿨어요 (이 폰에만 저장)'); } }
+    else if(k === 'off'){ try{ sessionStorage.removeItem('rpg_admin'); }catch(_){ } a.god = a.one = false; document.body.classList.remove('admin'); J.toast('운영자 모드 껐어요'); } }); }
+
+/* ===== 숫자 에디터 (운영자) — 쉬운 설명 · 묶음 상자 ===== */
+const ED = [
+  ['💰 보상', [['goldMul','골드 배율','끝말잇기 몬스터 골드 × 이 값'],['cubeMul','큐브 배율','큐브가 나오는 양 × 이 값'],['dropP','장비 드롭 %','일반 몬스터가 장비를 줄 확률 (정예는 3배)'],['dropBoss','보스 장비 드롭 %',''],['ticketP','뽑기권 검사 %','몬스터를 잡을 때 끝말잇기 뽑기권 확률표를 돌리는 비율']]],
+  ['🗺 맵·진행', [['quota','보스 문 사냥 수','이만큼 잡으면 보스 문이 열려요'],['mapLen','맵 길이','길수록 오래 걸어요 (2000~8000)'],['respawn','몬스터 다시 나오는 초',''],['hidP','히든 포탈 %','보스를 잡으면 히든 보스가 나올 확률']]],
+  ['👾 몬스터', [['monHp','몬스터 체력 배율',''],['monAtk','몬스터 공격 배율',''],['bossHp','보스 체력 배율','패턴을 보려면 2~3 추천']]],
+  ['⚔ 내 캐릭터', [['heroAtk','내 공격 배율',''],['heroHp','내 체력 배율',''],['pots','물약 개수','스테이지마다'],['pot','물약 자동 사용 체력 %','']]],
+  ['🌀 스킬', [['s1','회오리 위력','한 번 벨 때 공격력 × 이 값 (3번)'],['s1cd','회오리 쿨(초)',''],['s2','뇌전 위력',''],['s2cd','뇌전 쿨(초)',''],['s3','운석 위력',''],['s3cd','운석 쿨(초)',''],['roll','구르기 쿨(초)','']]],
+  ['🌏 화면', [['curve','글로브뷰 휘어짐','0 = 평평(기본) · 0.00005~0.0001 = 살짝 공처럼 (클수록 어지러워요)']]],
+  ['✨ 타격감', [['fxAll','타격감 전체 세기','1 = 기본 · 0 = 모두 끄기 · 2 = 두 배'],['fxStop','히트스톱','맞을 때 멈칫하는 정도 (0 = 없음)'],['fxShake','화면 흔들림',''],['fxFlash','화면 번쩍임','크리티컬·필살기 때 화면이 번쩍'],['fxSpark','불꽃 개수',''],['fxGlow','불꽃 빛번짐','0 = 끔 (폰이 느리면 0으로)'],['fxPop','데미지 숫자 튕김','숫자가 커졌다 줄어드는 정도'],['fxZoom','화면 확대 번쩍','크리티컬 때 살짝 확대'],['fxSquash','몬스터 찌그러짐','맞을 때 납작해지는 정도']]]
+];
+function editor(){ const cur = J.CFG; let h = '<div class="box"><h2>✏ 숫자 에디터 <button type="button" data-x>✕</button></h2><p class="note">바꾸고 [이 폰에 적용]을 누르면 바로 바뀌어요.\n모든 아이들에게 적용하려면 [파일로 받기] → rpg 저장소에 rpg-config.json 으로 올려요.</p>';
+  for(const [nm, fs] of ED){ h += '<details class="ed"><summary>' + nm + '</summary>'; for(const [k, l, d] of fs) h += '<label><b>' + l + '</b><input class="inp" data-k="' + k + '" value="' + cur[k] + '" inputmode="decimal">' + (d ? '<small>' + d + '</small>' : '') + '</label>'; h += '</details>'; }
+  h += '<div class="mn" style="margin-top:10px"><button type="button" data-e="apply">✅ 이 폰에 적용</button><button type="button" data-e="file">📥 파일로 받기</button><button type="button" data-e="reset">↩ 기본값</button><button type="button" data-x>닫기</button></div></div>';
+  const { o, close } = overlay(h); o.querySelector('details').open = true;
+  const read = () => { const out = {}; o.querySelectorAll('[data-k]').forEach(i => { const v = parseFloat(i.value); if(isFinite(v)) out[i.dataset.k] = v; }); return out; };
+  o.addEventListener('click', e => { const b = e.target.closest('[data-e]'); if(!b) return; const k = b.dataset.e;
+    if(k === 'apply'){ const v = read(); J.cfgApply(v); J.LS.set('rpg_cfg_local', v); J.toast('✅ 이 폰에 적용했어요 (맵 길이·보스 문은 다음 스테이지부터)'); }
+    else if(k === 'reset'){ J.LS.set('rpg_cfg_local', null); Object.assign(J.CFG, J.CFG0); close(); J.toast('↩ 기본값으로 (rpg-config.json이 있으면 그 값)'); }
+    else if(k === 'file'){ const v = Object.assign({}, J.CFG, read()); const blob = new Blob([JSON.stringify(v, null, 1)], { type:'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'rpg-config.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); J.toast('📥 rpg-config.json 받았어요 → rpg 저장소에 올리면 모두에게 적용'); } }); }
+
+/* ===== 시작 ===== */
+J.loading = function(on){ $('veil').classList.toggle('on', !!on); };
+(async function(){
+  window.jdBaramLoad = () => J.toast('아이템 목록은 끝말잇기를 한 번 열면 들어와요');
+  window.toast = window.toast || J.toast;
+  try{
+    await J.boot();
+    J.W.init($('cv')); J.SND.load();
+    J.msg('영웅 옷 입히는 중…');
+    for(let i = 0; i < 30 && J.L && !J.L.goldOk; i++) await new Promise(r => setTimeout(r, 100)); /* 가방이 저장소를 다 읽을 때까지 */
+    await J.refreshHero();
+    const R = J.prog(); G.st = Math.max(0, Math.min(R.clr, (R.pick || 1) - 1));
+    J.msg('스테이지 준비 중…'); await J.beginStage();
+    J.ready = true; $('load').remove(); J.start();
+    if(isAdmin()) document.body.classList.add('admin');
+    if(!J.L || !J.LIB.map.length) J.toast('끝말잇기 그림을 다 못 불러왔어요. ⚙ 설정 → 🔍 그림 상태에서 다시 불러오기');
+    if(!J.LS.get('rpg_help3', false)){ J.LS.set('rpg_help3', true); setTimeout(help, 400); }
+    window.JD_RPG = J;
+  }catch(e){ console.error(e); J.msg('시작하다 문제가 생겼어요: ' + (e && e.message)); }
+})();
+document.addEventListener('pointerdown', () => { J.SND.ctx(); if(J.ready) J.SND.music(J.bgmKey(G.st)); }, { once:true });
+})(window.J);
