@@ -40,8 +40,12 @@ J.refreshHero = async function(){
   if(!heroSh) heroSh = new W.Shadow(36);
   G.pmax = J.stats().hp; G.php = Math.min(G.php || G.pmax, G.pmax);
   J.eqSig = eqSig(); };
-function eqSig(){ try{ const s = J.share(); return JSON.stringify(J.L ? J.L.eq : null) + '|' + s.tf + '|' + s.cp + '|' + J.LS.get('rpg_hair', '') + '|' + J.LS.get('rpg_tflook', false); }catch(_){ return ''; } }
+function eqSig(){ try{ const s = J.share(); return JSON.stringify(J.L ? J.L.eq : null) + '|' + JSON.stringify(J.L ? J.L.hid : null) + '|' + s.tf + '|' + s.cp + '|' + J.LS.get('rpg_hair', '') + '|' + J.LS.get('rpg_tflook', false) + '|' + JSON.stringify(J.LS.get('rpg_layers', null)); }catch(_){ return ''; } }
 setInterval(() => { if(J.ready && !J.paused && !J._rhBusy && eqSig() !== J.eqSig){ J._rhBusy = true; Promise.resolve(J.refreshHero()).catch(e => console.warn('hero', e)).then(() => { J._rhBusy = false; }); } }, 1500);   /* [v12] 옷 입힌 그림 만드는 중에 또 시작하지 않게 */
+
+/* [v24] 레이어 순서 창 도우미: 지금 영웅 그림을 알려주고, 순서를 바꾸면 0.25초 뒤 바로 다시 만들어요(다른 그림 만들기와 겹치지 않게 기다려요) */
+J.heroArt = () => HERO_ART;
+J.applyLayers = function(){ clearTimeout(J._lyT); J._lyT = setTimeout(async function run(){ if(J._rhBusy){ J._lyT = setTimeout(run, 300); return; } J._rhBusy = true; try{ await J.refreshHero(); }catch(e){ console.warn('layer', e); } J._rhBusy = false; }, 250); };
 
 /* ===== 파티클 · 숫자 · 이펙트 (화면 위에 그리는 것들) ===== */
 function sparks(x, y, z, n, col, sp){ n = Math.round(n * FK('fxSpark')); for(let i = 0; i < n; i++){ const a = rnd(0, 6.283), v = rnd(.4, 1) * (sp || 520); PT.push({ k:'spark', x, y, z, vx:Math.cos(a) * v, vy:Math.sin(a) * v * .8 + 180, vz:rnd(-80, 80), g:-1100, t:0, life:rnd(.18, .38), col:col || '#fff6c8', w:rnd(2, 4) }); } }

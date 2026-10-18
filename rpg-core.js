@@ -27,6 +27,7 @@ J.CFG0 = {
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
+J.VER = 'rpg-v24';
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
@@ -175,9 +176,17 @@ J.DLG = { hp:[1.3,1.6,2,2.6,3.4,4.5], atk:[1.1,1.2,1.35,1.5,1.7,2], gold:[2,3,5,
 
 /* ===== 영웅 그림 (내 장비를 입혀서 한 장의 그림판으로) ===== */
 const MOC = { weapon:'weapon', helmet:'helmet', armor:'coat', set:'set', outer:'armor', shield:'shield', cloak:'cape', shoes:'shoes' };
-const ORDER = ['cape','set','coat','armor','shoes','hair','helmet','shield','weapon'];
+/* [v24] 레이어 순서(아래 → 위)를 내가 정해요. 'body'는 기본 몸. 기본값은 v23과 똑같아요.
+   저장 위치: localStorage 'rpg_layers' (⚙ 설정 → 🧅 레이어 순서). 빠진 칸·모르는 칸은 알아서 채워서 항상 10칸이에요 */
+const DEF_ORDER = ['body','shoes','cape','weapon','shield','hair','helmet','set','coat','armor'];
+J.DEF_ORDER = DEF_ORDER.slice();
+J.layerOrder = function(){ const o = J.LS.get('rpg_layers', null), out = [];
+  if(Array.isArray(o)) for(const c of o) if(DEF_ORDER.includes(c) && !out.includes(c)) out.push(c);
+  for(const c of DEF_ORDER) if(!out.includes(c)) out.push(c);
+  return out; };
 const KEYS = ['walk_r','walk_d','walk_u','atk_r','atk_d','atk_u'];
-const CATN = { cape:'망토', set:'세트옷', armor:'겉옷', coat:'갑옷', shoes:'신발', helmet:'투구', shield:'방패', weapon:'무기', hair:'헤어' };
+const CATN = { body:'몸', cape:'망토', set:'세트옷', armor:'겉옷', coat:'갑옷', shoes:'신발', helmet:'투구', shield:'방패', weapon:'무기', hair:'헤어' };
+J.CATN = CATN;
 const bareName = n => String(n || '').replace(/^(갑옷|헤어|얼굴장식|얼굴|목_어깨장식|장신구|방패_보조무기|방패|망토|신발|세트옷|무기|겉옷|투구)_/, '');
 const MOP = {};
 /* [v14] 새 모션 파일은 앞/뒤를 _f/_b로 저장(옛 파일은 _d/_u) → 둘 다 읽게 */
@@ -188,16 +197,16 @@ async function moItem(c, nm){ const MO = J.MO; const idx = MO._i || (MO._i = (()
 J.heroEq = async function(){ if(J.L && J.L.eq) return J.L.eq; return (await J.kget('eq')) || {}; };
 J.buildHero = async function(){
   const MO = J.MO; if(!MO || !J.moBase) return null;
-  const W = MO.W, H = MO.H, wear = {}, miss = [], eq = await J.heroEq();
-  Object.keys(eq || {}).forEach(gc => { const c = MOC[gc]; if(!c) return; const k = eq[gc]; if(!k) return; try{ const bn = bareName(String(k).split('|')[1].split('@')[0]); wear[c] = (J.L && J.L.moName) ? J.L.moName(c, bn) : bn; }catch(_){ } });
+  const W = MO.W, H = MO.H, wear = {}, miss = [], hidC = [], eq = await J.heroEq(), order = J.layerOrder();
+  Object.keys(eq || {}).forEach(gc => { const c = MOC[gc]; if(!c) return; const k = eq[gc]; if(!k) return; if(J.L && J.L.hid && J.L.hid[k]){ hidC.push(c); return; } try{   /* [v22] 눈 표시로 숨긴 장비는 안 그려요 */ const bn = bareName(String(k).split('|')[1].split('@')[0]); wear[c] = (J.L && J.L.moName) ? J.L.moName(c, bn) : bn; }catch(_){ } });
   const hair = J.LS.get('rpg_hair', null); if(hair) wear.hair = hair;
+  J.wearNow = wear; J.wearHid = hidC;   /* [v24] 레이어 창이 지금 입은 것을 보여주는 데 써요 */
   const its = {}; for(const c of Object.keys(wear)){ const it = await moItem(c, wear[c]); if(it) its[c] = it; else miss.push(c); }
   J.outfitMiss = miss.map(c => CATN[c] + ': ' + wear[c]);
   const full = {}; let x0 = W, y0 = H, x1 = 0, y1 = 0;
   for(const key of KEYS){ const bv = moK(MO.base.v, key), [bx, by, bw, bh] = MO.base.box, arr = [];
     for(let f = 0; f < bv.length; f++){ const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d', { willReadFrequently:true });
-      x.drawImage(J.moBase, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh);
-      for(const c of ORDER){ const it = its[c]; if(!it) continue; const v = moK(it.v, key); if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
+      for(const c of order){ if(c === 'body'){ x.drawImage(J.moBase, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh); continue; } const it = its[c]; if(!it) continue; const v = moK(it.v, key); if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
         if(it._e){ x.globalCompositeOperation = 'destination-out'; x.drawImage(it._e, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.globalCompositeOperation = 'source-over'; }
         if(it._s) x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); }
       const d = x.getImageData(0, 0, W, H).data;

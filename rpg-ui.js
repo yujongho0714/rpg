@@ -77,14 +77,14 @@ function stageMenu(){ const R = J.prog(), c = Math.max(1, R.clr + 1), adm = isAd
 function setMenu(){ const tfL = J.LS.get('rpg_tflook', false);
   const { o, close } = overlay('<div class="box"><h2>⚙ 설정 <button type="button" data-x>✕</button></h2><div class="mn">' +
     '<button type="button" data-m="snd">' + (J.SND.on ? '🔊 효과음 끄기' : '🔇 효과음 켜기') + '</button><button type="button" data-m="bgm">' + (J.SND.mus ? '🎵 음악 끄기' : '🎵 음악 켜기') + '</button>' +
-    '<button type="button" data-m="tf">' + (tfL ? '🧍 내 장비 모습으로' : '🦸 변신 모습으로 싸우기') + '</button><button type="button" data-m="hair">💇 헤어</button>' +
+    '<button type="button" data-m="tf">' + (tfL ? '🧍 내 장비 모습으로' : '🦸 변신 모습으로 싸우기') + '</button><button type="button" data-m="hair">💇 헤어</button><button type="button" data-m="layer">🧅 레이어 순서</button>' +
     '<button type="button" data-m="diag">🔍 그림 상태</button><button type="button" data-m="help">❓ 하는 법</button><button type="button" data-m="admin">' + (isAdmin() ? '🛠 운영자 메뉴' : '🔐 운영자 모드') + '</button></div>' +
     (J.outfitMiss && J.outfitMiss.length ? '<p class="note">아직 움직이는 그림이 없는 장비예요 (자무주 수집기로 받으면 나와요)\n' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '</p>' : '') + '</div>');
   o.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if(!b) return; const m = b.dataset.m; close();
     if(m === 'snd'){ J.SND.on = !J.SND.on; J.toast(J.SND.on ? '🔊 효과음 켰어요' : '🔇 효과음 껐어요'); }
     else if(m === 'bgm'){ J.SND.mus = !J.SND.mus; J.toast(J.SND.mus ? '🎵 음악 켰어요' : '음악 껐어요'); }
     else if(m === 'tf'){ const s = J.stats(); if(!tfL && !s.tf){ J.toast('먼저 🦸 변신·동료에서 변신 카드를 끼워 주세요'); return; } J.LS.set('rpg_tflook', !tfL); J.refreshHero(); }
-    else if(m === 'hair') hairMenu(); else if(m === 'help') help(); else if(m === 'diag') diag(); else if(m === 'admin') adminMenu(); }); }
+    else if(m === 'hair') hairMenu(); else if(m === 'layer') layerMenu(); else if(m === 'help') help(); else if(m === 'diag') diag(); else if(m === 'admin') adminMenu(); }); }
 function diag(){ const L = J.L, A = J.G.A || {}, eq = L && L.eq ? Object.keys(L.eq).length : 0, dlLoaded = J.DL ? J.DL.units.filter(u => u.im).length : 0;
   const rows = [
     ['끝말잇기 연결', J.LIB.map.length ? '✅ 됨' : '❌ 못 읽음 (인터넷 확인 후 다시 열기)'],
@@ -94,7 +94,9 @@ function diag(){ const L = J.L, A = J.G.A || {}, eq = L && L.eq ? Object.keys(L.
     ['맵·몬스터 그림', J.LIB.map.length + '맵 · 몬스터 ' + J.LIB.mob.length + ' · 이번 판 ' + (A.mob ? A.mob.length : 0) + '종'],
     ['변신·동료 그림', J.DL ? '목록 ' + J.DL.units.length + '명 · 받은 것 ' + dlLoaded + '명' : '❌ 목록 못 받음'],
     ['이펙트', Object.keys(J.FX).length + '개'],
-    ['영웅 그림', J.HERO.tfU ? '🦸 변신 모습' : J.HERO.dress ? '👕 옷 입힌 그림 (걷기 그림 없는 장비가 있어서)' : '🚶 걷기·공격 그림'],
+    ['RPG 파일 버전', J.VER || '⚠ 옛 버전 (v20 미만) — 파일을 다시 올리고 RPG를 완전히 닫았다 열기'],
+    ['영웅 그림', J.HERO.tfU ? '🦸 변신 모습' : J.HERO.dress ? '👕 옷 입힌 그림 (방향별 그림을 못 만들었거나 rpg_dress 켜짐)' : '🚶 방향별 걷기·공격 그림'],
+    ['레이어 순서 (아래→위)', J.layerOrder().map(c => J.CATN[c] || c).join(' → ')],
     ['걷기 그림 없는 장비', (J.outfitMiss && J.outfitMiss.length) ? J.outfitMiss.length + '개' : '없음']
   ];
   overlay('<div class="box"><h2>🔍 그림 상태 <button type="button" data-x>✕</button></h2><table class="dg">' + rows.map(r => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>').join('') + '</table>' + (J.outfitMiss && J.outfitMiss.length ? '<p class="note">' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '\n→ 자무주 수집기로 이 장비의 걷기 그림을 받으면 움직이는 모습이 나와요</p>' : '') + '<div class="mn"><button type="button" data-d="reload">🔄 다시 불러오기</button><button type="button" data-x>닫기</button></div></div>').o.addEventListener('click', e => { if(e.target.closest('[data-d="reload"]')) location.reload(); }); }
@@ -105,6 +107,40 @@ async function hairMenu(){ const MO = J.MO; if(!MO || !MO.cats.hair){ J.toast('�
   const packs = {}; for(const a of list){ if(!packs[a[1]]) packs[a[1]] = await J.moPack('hair', a[1]); const pk = packs[a[1]]; if(!pk || !o.isConnected) continue; const tc = pk.tc, rows = Math.ceil(pk.items.length / tc), i = a[2];
     const b = document.createElement('button'); b.type = 'button'; b.title = a[0]; b.style.aspectRatio = tb[2] + '/' + tb[3]; if(cur === a[0]) b.className = 'on'; const s = document.createElement('i'); s.style.backgroundImage = 'url(' + pk.thumb + ')'; s.style.backgroundSize = (tc * 100) + '% ' + (rows * 100) + '%'; s.style.backgroundPosition = (tc > 1 ? (i % tc) / (tc - 1) * 100 : 0) + '% ' + (rows > 1 ? Math.floor(i / tc) / (rows - 1) * 100 : 0) + '%'; b.append(s);
     b.onclick = () => { J.LS.set('rpg_hair', a[0]); close(); J.toast('💇 ' + a[0]); }; hg.append(b); } }
+
+/* ===== [v24] 🧅 레이어 순서: 몸·장비가 겹칠 때 뭐가 앞에 보일지 정해요 ===== */
+(function(){ const st = document.createElement('style');
+  st.textContent = '.lyp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;position:sticky;top:0;z-index:2;background:var(--panel);padding-bottom:6px;box-shadow:0 -14px 0 var(--panel)}.lyp canvas{width:100%;aspect-ratio:100/112;background:#0006;border:2px solid var(--line);border-radius:10px;image-rendering:pixelated}' +
+    '.lyl{display:grid;gap:6px;margin:8px 0 10px}.lyr{display:grid;grid-template-columns:58px 1fr 44px 44px;gap:6px;align-items:center;padding:3px 8px;border:2px solid var(--line);border-radius:12px;background:#0006}' +
+    '.lyr b{font-family:var(--disp);font-weight:400;color:var(--gold)}.lyr span{font-size:.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.lyr button{padding:6px 0;border-radius:10px;border:2px solid var(--line);background:#0006;color:var(--fg);font-size:1rem}.lyr button:disabled{opacity:.28}';
+  document.head.appendChild(st); })();
+function layerMenu(){
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), NM = J.CATN;
+  const { o } = overlay('<div class="box"><h2>🧅 레이어 순서 <button type="button" data-x>✕</button></h2>' +
+    '<div class="lyp"><canvas width="100" height="112" data-k="walk_r"></canvas><canvas width="100" height="112" data-k="walk_d"></canvas><canvas width="100" height="112" data-k="walk_u"></canvas><canvas width="100" height="112" data-k="atk_r"></canvas></div>' +
+    '<p class="note" data-warn></p>' +
+    '<p class="note">위에 있는 것이 앞에 보여요 (겹치면 위가 이겨요).\n▲ 앞으로 · ▼ 뒤로 — 누르면 위 그림에 바로 바뀌어요.\n무기·방패를 몸보다 뒤로 보내면 손이 가려질 수 있어요.</p>' +
+    '<div class="lyl"></div><div class="mn"><button type="button" data-ly="reset">↺ 기본 순서로</button><button type="button" data-x>닫기</button></div></div>');
+  const list = o.querySelector('.lyl'), warn = o.querySelector('[data-warn]');
+  const desc = c => { if(c === 'body') return '기본 몸'; const w = J.wearNow && J.wearNow[c]; return w ? esc(w) : (J.wearHid && J.wearHid.includes(c) ? '👁 숨김' : '없음'); };
+  const draw = () => { const ord = J.layerOrder().slice().reverse();   /* 화면에는 위 → 아래로 */
+    list.innerHTML = ord.map((c, i) => '<div class="lyr"><b>' + NM[c] + '</b><span>' + (i === 0 ? '⬆ 맨 위 · ' : i === ord.length - 1 ? '⬇ 맨 아래 · ' : '') + desc(c) + '</span>' +
+      '<button type="button" data-up="' + c + '"' + (i === 0 ? ' disabled' : '') + '>▲</button><button type="button" data-dn="' + c + '"' + (i === ord.length - 1 ? ' disabled' : '') + '>▼</button></div>').join('');
+    warn.textContent = H.tfU ? '⚠ 지금은 🦸 변신 모습이라 바뀐 게 안 보여요. 설정에서 "내 장비 모습으로" 바꾸면 보여요.' : (H.dress ? '⚠ 지금은 👕 옷 입힌 그림이라 순서가 적용되지 않아요.' : ''); warn.style.display = warn.textContent ? '' : 'none'; };
+  const move = (c, d) => { const a = J.layerOrder(), i = a.indexOf(c), j = i + d; if(i < 0 || j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; J.LS.set('rpg_layers', a); draw(); J.applyLayers(); };
+  o.addEventListener('click', e => { const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]'), r = e.target.closest('[data-ly="reset"]');
+    if(u) move(u.dataset.up, 1); else if(d) move(d.dataset.dn, -1); else if(r){ J.LS.set('rpg_layers', J.DEF_ORDER.slice()); draw(); J.applyLayers(); J.toast('🧅 기본 순서로 돌렸어요'); } });
+  draw();
+  /* 미리보기: 옆·앞·뒤 걷기 + 공격을 계속 돌려요 (순서를 바꾸면 그림이 다시 만들어지는 동안 잠깐 예전 모습) */
+  const cvs = [...o.querySelectorAll('.lyp canvas')];
+  const loop = () => { if(!o.isConnected) return; const a = J.heroArt && J.heroArt();
+    if(a && a.fr){ const t = performance.now(); cvs.forEach(c => { const k = c.dataset.k, fr = a.fr[k]; if(!fr || !fr.length) return;
+      const f = fr[Math.floor(t / (k.indexOf('atk') === 0 ? 260 : 180)) % fr.length], x = c.getContext('2d'), s = Math.min((c.width - 8) / f[2], (c.height - 8) / f[3]), dw = f[2] * s, dh = f[3] * s;
+      x.clearRect(0, 0, c.width, c.height); x.imageSmoothingEnabled = false; x.drawImage(a.canvas, f[0], f[1], f[2], f[3], (c.width - dw) / 2, c.height - 4 - dh, dw, dh); }); }
+    requestAnimationFrame(loop); };
+  loop();
+}
 
 /* ===== 운영자 모드 (비밀번호) ===== */
 const hash = s => { let h = 5381; for(const ch of String(s)) h = ((h << 5) + h + ch.codePointAt(0)) | 0; return String(h >>> 0); };
