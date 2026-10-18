@@ -99,7 +99,36 @@ function diag(){ const L = J.L, A = J.G.A || {}, eq = L && L.eq ? Object.keys(L.
     ['레이어 순서 (아래→위)', J.layerOrder().map(c => J.CATN[c] || c).join(' → ')],
     ['걷기 그림 없는 장비', (J.outfitMiss && J.outfitMiss.length) ? J.outfitMiss.length + '개' : '없음']
   ];
-  overlay('<div class="box"><h2>🔍 그림 상태 <button type="button" data-x>✕</button></h2><table class="dg">' + rows.map(r => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>').join('') + '</table>' + (J.outfitMiss && J.outfitMiss.length ? '<p class="note">' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '\n→ 자무주 수집기로 이 장비의 걷기 그림을 받으면 움직이는 모습이 나와요</p>' : '') + '<div class="mn"><button type="button" data-d="reload">🔄 다시 불러오기</button><button type="button" data-x>닫기</button></div></div>').o.addEventListener('click', e => { if(e.target.closest('[data-d="reload"]')) location.reload(); }); }
+  overlay('<div class="box"><h2>🔍 그림 상태 <button type="button" data-x>✕</button></h2><table class="dg">' + rows.map(r => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>').join('') + '</table>' + (J.outfitMiss && J.outfitMiss.length ? '<p class="note">' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '\n→ 자무주 수집기로 이 장비의 걷기 그림을 받으면 움직이는 모습이 나와요</p>' : '') + '<div class="mn"><button type="button" data-d="eq">🧰 장비 점검</button><button type="button" data-d="reload">🔄 다시 불러오기</button><button type="button" data-x>닫기</button></div></div>').o.addEventListener('click', e => { if(e.target.closest('[data-d="reload"]')) location.reload(); else if(e.target.closest('[data-d="eq"]')) equipCheck(); }); }
+/* ===== [v25] 🧰 장비 점검: 입은 장비마다 어떤 모션 그림에 연결됐는지 보여줘요 ===== */
+async function equipCheck(){
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), NM = J.CATN;
+  const { o } = overlay('<div class="box"><h2>🧰 장비 점검 <button type="button" data-x>✕</button></h2><p class="note">장비 그림을 다시 만들어 확인하는 중…</p></div>');
+  try{ await J.buildHero(); }catch(e){ }
+  const log = J.moLog || [], hasMO = !!(J.MO && J.moBase), hasMF = !!(J.L && J.L.moName);
+  let bad = 0, swp = 0, big = 0, h = '<h2>🧰 장비 점검 <button type="button" data-x>✕</button></h2>';
+  const rows = log.map(e => {
+    if(e.hid) return '<tr><th>' + esc(NM[e.c] || e.c) + '</th><td>👁 숨김<br><small>' + esc(e.nm) + '</small></td></tr>';
+    let st; if(!e.has){ bad++; st = '❌ 모션 그림 없음'; } else if(e.swap){ swp++; st = '🔀 다른 장비 그림으로 바뀜'; } else st = '✅ 연결됨';
+    if(e.big){ big++; st += ' · 🐯 아주 큰 그림 ' + e.w + '×' + e.h; }
+    return '<tr><th>' + esc(NM[e.c] || e.c) + '</th><td>' + st + '<br><small>장비: ' + esc(e.nm) + '<br>가방 이름→모션 이름: ' + esc(e.bn) + (e.hasBn ? ' (모션에 있음)' : ' (모션에 없음)') + ' → <b>' + esc(e.mo) + '</b></small></td></tr>'; }).join('');
+  const hair = J.LS.get('rpg_hair', null);
+  h += '<table class="dg">' + [
+    ['모션 데이터', hasMO ? '✅ ' + Object.keys(J.MO.cats).length + '부위' : '❌ 못 읽음 (mo-index.json)'],
+    ['이름 연결 함수 (moName)', hasMF ? '✅ 있음' : '⚠ 없음 — 장비 이름 그대로 찾아요'],
+    ['입은 장비', log.length + '개'],
+    ['연결 안 됨', bad ? '❌ ' + bad + '개' : '없음'],
+    ['바뀌치기', swp ? '🔀 ' + swp + '개' : '없음'],
+    ['아주 큰 그림', big ? '🐯 ' + big + '개' : '없음'],
+    ['헤어', hair ? esc(hair) : '기본']
+  ].map(r => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>').join('') + '</table>';
+  h += '<h3 style="margin:10px 0 4px;font-size:.95rem">장비별 결과</h3>' + (rows ? '<table class="dg">' + rows + '</table>' : '<p class="note">입은 장비가 없어요. 🎒 가방에서 장비를 입고 다시 열어 주세요.</p>');
+  h += '<p class="note">❌ = 이 장비 이름으로 움직이는 그림을 못 찾았어요. 🔀 = 이름이 달라서 다른 장비 그림으로 대신 입혔어요 (영상의 비행선·검은 낫이 이런 경우일 수 있어요). 🐯 = 원래 크기가 큰 소환수·효과 그림이에요.' + (J.HERO && J.HERO.dress ? '\n⚠ 지금 👕 옷 입힌 그림 모드라서 이 점검 결과와 화면 그림이 다를 수 있어요.' : '') + '</p>';
+  h += '<div class="mn"><button type="button" data-ec="copy">📋 결과 복사</button><button type="button" data-x>닫기</button></div>';
+  const box = o.querySelector('.box'); box.innerHTML = h;
+  const txt = ['[장비 점검 ' + (J.VER || '') + ']'].concat(log.map(e => e.hid ? (NM[e.c] + ' 숨김 ' + e.nm) : (NM[e.c] + ' | ' + e.nm + ' | ' + (e.has ? (e.swap ? '바뀜' : '연결') : '없음') + ' | ' + e.bn + ' → ' + e.mo + (e.big ? ' | 큼 ' + e.w + 'x' + e.h : '')))).join('\n');
+  box.addEventListener('click', e => { if(!e.target.closest('[data-ec="copy"]')) return; try{ navigator.clipboard.writeText(txt).then(() => J.toast('📋 복사했어요'), () => J.toast('복사가 막혔어요. 화면을 캡처해 주세요')); }catch(_){ J.toast('복사가 막혔어요. 화면을 캡처해 주세요'); } });
+}
 function help(){ overlay('<div class="box"><h2>❓ 하는 법 <button type="button" data-x>✕</button></h2><p class="note">🕹 왼쪽 아래를 손가락으로 끌면 걸어요 (앞뒤로도 움직여요)\n⚔ 공격: 누르고 있으면 1·2·3타 연속! 3타는 적을 띄워요\n🌀 회오리: 둘레를 3번 베어요\n⚡ 뇌전: 적 무리 가운데로 뛰어들어 번개!\n☄ 운석: 하늘에서 운석이 떨어져요\n💨 구르기: 구르는 동안은 안 맞아요\n\n❗ 몬스터 머리 위 느낌표 = 곧 때려요 → 먼저 때리면 끊어요\n🟥 보스가 바닥에 그린 빨간 곳 = 맞는 곳. 빨리 빠져나와요\n🟩 초록 원 = 안전한 곳\n🛡 방패가 있는 몬스터는 계속 때려서 방패를 다 깨면 BREAK! → 기절하고 데미지 1.5배 (치명타·스킬은 2칸씩 깨요)\n\n🗺 맵 곳곳의 몬스터를 잡으면 보스 문이 열려요 → 오른쪽 끝 빛기둥으로!\n⚔ 자동을 켜면 알아서 싸우고 피해요\n🎒 가방·🦸 변신·🎰 뽑기·⚗ 합성은 끝말잇기와 똑같고 저장도 같이 돼요</p></div>'); }
 async function hairMenu(){ const MO = J.MO; if(!MO || !MO.cats.hair){ J.toast('헤어 그림이 아직 없어요'); return; } const { o, close } = overlay('<div class="box"><h2>💇 헤어 <button type="button" data-x>✕</button></h2><div class="hg"></div></div>');
   const tb = MO.thumbBox, cur = J.LS.get('rpg_hair', null), list = MO.cats.hair, hg = o.querySelector('.hg');

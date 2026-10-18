@@ -27,7 +27,7 @@ J.CFG0 = {
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
-J.VER = 'rpg-v24';
+J.VER = 'rpg-v27';
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
@@ -175,10 +175,11 @@ J.dlSeg = function(u, m){ const n = u.n; return m === 'a' ? [n[0], n[1]] : m ===
 J.DLG = { hp:[1.3,1.6,2,2.6,3.4,4.5], atk:[1.1,1.2,1.35,1.5,1.7,2], gold:[2,3,5,8,12,20], col:['#5fd38a','#4aa3ff','#b45cff','#ff9a2e','#ff4b4b','#46d7ff'], nm:['고급','희귀','영웅','전설','신화','유일'] };
 
 /* ===== 영웅 그림 (내 장비를 입혀서 한 장의 그림판으로) ===== */
-const MOC = { weapon:'weapon', helmet:'helmet', armor:'coat', set:'set', outer:'armor', shield:'shield', cloak:'cape', shoes:'shoes' };
+/* [v26] 망토(cloak)·겉옷(outer)은 막았어요: 그림에 안 입히고, 레이어 창에도 안 나와요 (다시 켜려면 아래 두 줄과 DEF_ORDER에 되돌리기) */
+const MOC = { weapon:'weapon', helmet:'helmet', armor:'coat', set:'set', shield:'shield', shoes:'shoes' };
 /* [v24] 레이어 순서(아래 → 위)를 내가 정해요. 'body'는 기본 몸. 기본값은 v23과 똑같아요.
-   저장 위치: localStorage 'rpg_layers' (⚙ 설정 → 🧅 레이어 순서). 빠진 칸·모르는 칸은 알아서 채워서 항상 10칸이에요 */
-const DEF_ORDER = ['body','shoes','cape','weapon','shield','hair','helmet','set','coat','armor'];
+   저장 위치: localStorage 'rpg_layers' (⚙ 설정 → 🧅 레이어 순서). 빠진 칸·모르는 칸은 알아서 채워서 항상 8칸이에요 (v26: 망토·겉옷 뺌) */
+const DEF_ORDER = ['body','shoes','weapon','shield','hair','helmet','set','coat'];
 J.DEF_ORDER = DEF_ORDER.slice();
 J.layerOrder = function(){ const o = J.LS.get('rpg_layers', null), out = [];
   if(Array.isArray(o)) for(const c of o) if(DEF_ORDER.includes(c) && !out.includes(c)) out.push(c);
@@ -194,21 +195,44 @@ const moK = (o, k) => o[k] || o[k.replace(/_d$/, '_f').replace(/_u$/, '_b')] || 
 J.moPack = function(c, p){ const k = c + p; if(!MOP[k]) MOP[k] = fetch(J.MO.pre + 'mo-' + c + '-' + ('00' + p).slice(-3) + '.json').then(r => r.json()).catch(() => null); return MOP[k]; };
 async function moItem(c, nm){ const MO = J.MO; const idx = MO._i || (MO._i = (() => { const o = {}; Object.keys(MO.cats).forEach(c => { o[c] = {}; MO.cats[c].forEach(a => { o[c][a[0]] = [a[1], a[2]]; }); }); return o; })());
   const a = idx[c] && idx[c][nm]; if(!a) return null; const pk = await J.moPack(c, a[0]); if(!pk) return null; const it = pk.items[a[1]]; if(!it) return null; if(!it._s){ it._s = await J.loadImg(it.s); it._e = it.e ? await J.loadImg(it.e) : null; } return it; }
+J.moHas = function(c, nm){ const MO = J.MO; if(!MO || !MO.cats || !MO.cats[c]) return false; const idx = MO._h || (MO._h = {}); if(!idx[c]){ idx[c] = {}; MO.cats[c].forEach(a => { idx[c][a[0]] = 1; }); } return !!idx[c][nm]; };
+/* [v27] 무기 그림 안에 따로 떨어진 "다른 캐릭터"가 섞인 무기(영상: 고딕이브닝레드스피어 → 캐릭이 2개)는, 몸 근처와 안 닿는 덩어리를 지워요.
+   대상은 이름이 아래 글자를 포함한 무기만이에요. 다른 무기도 같은 증상이면 이름을 한 줄 더 적으면 돼요. */
+const STRAY_WEAPON = ['고딕이브닝레드스피어'];
+J.strayWeapon = nm => STRAY_WEAPON.some(k => String(nm || '').indexOf(k) >= 0);
+let _stc = null;
+function stripStray(src, kb, W, H){
+  if(!_stc){ _stc = document.createElement('canvas'); } _stc.width = W; _stc.height = H; const t = _stc.getContext('2d', { willReadFrequently:true }); t.clearRect(0, 0, W, H); t.drawImage(src, 0, 0);
+  const g = 4, gw = Math.ceil(W / g), gh = Math.ceil(H / g), im = t.getImageData(0, 0, W, H), d = im.data, occ = new Uint8Array(gw * gh);
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(d[(y * W + x) * 4 + 3] > 8) occ[((y / g) | 0) * gw + ((x / g) | 0)] = 1;
+  const lab = new Int32Array(gw * gh).fill(-1), drop = []; let n = 0;
+  for(let i = 0; i < occ.length; i++){ if(!occ[i] || lab[i] >= 0) continue; const q = [i]; lab[i] = n; let x0 = gw, y0 = gh, x1 = 0, y1 = 0;
+    while(q.length){ const c = q.pop(), cx = c % gw, cy = (c / gw) | 0; if(cx < x0) x0 = cx; if(cx > x1) x1 = cx; if(cy < y0) y0 = cy; if(cy > y1) y1 = cy;
+      for(let dy = -2; dy <= 2; dy++) for(let dx = -2; dx <= 2; dx++){ const nx = cx + dx, ny = cy + dy; if(nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue; const k = ny * gw + nx; if(occ[k] && lab[k] < 0){ lab[k] = n; q.push(k); } } }
+    const m = 24, hit = !(x1 * g + g < kb[0] - m || x0 * g > kb[0] + kb[2] + m || y1 * g + g < kb[1] - m || y0 * g > kb[1] + kb[3] + m); drop[n] = !hit; n++; }
+  if(!drop.some(Boolean)) return src;
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){ const l = lab[((y / g) | 0) * gw + ((x / g) | 0)]; if(l >= 0 && drop[l]) d[(y * W + x) * 4 + 3] = 0; }
+  t.putImageData(im, 0, 0); return _stc; }
+J.stripStray = stripStray;
 J.heroEq = async function(){ if(J.L && J.L.eq) return J.L.eq; return (await J.kget('eq')) || {}; };
 J.buildHero = async function(){
   const MO = J.MO; if(!MO || !J.moBase) return null;
   const W = MO.W, H = MO.H, wear = {}, miss = [], hidC = [], eq = await J.heroEq(), order = J.layerOrder();
-  Object.keys(eq || {}).forEach(gc => { const c = MOC[gc]; if(!c) return; const k = eq[gc]; if(!k) return; if(J.L && J.L.hid && J.L.hid[k]){ hidC.push(c); return; } try{   /* [v22] 눈 표시로 숨긴 장비는 안 그려요 */ const bn = bareName(String(k).split('|')[1].split('@')[0]); wear[c] = (J.L && J.L.moName) ? J.L.moName(c, bn) : bn; }catch(_){ } });
+  J.moLog = [];   /* [v25] 장비 점검용: 장비마다 어떤 모션 이름으로 연결됐는지 기록 */
+  Object.keys(eq || {}).forEach(gc => { const c = MOC[gc]; if(!c) return; const k = eq[gc]; if(!k) return; if(J.L && J.L.hid && J.L.hid[k]){ hidC.push(c); J.moLog.push({ c, nm:String(k).split('|')[1] || String(k), hid:1 }); return; } try{   /* [v22] 눈 표시로 숨긴 장비는 안 그려요 */ const bn = bareName(String(k).split('|')[1].split('@')[0]); wear[c] = (J.L && J.L.moName) ? J.L.moName(c, bn) : bn; J.moLog.push({ c, nm:String(k).split('|')[1] || String(k), bn, mo:wear[c] }); }catch(_){ } });
   const hair = J.LS.get('rpg_hair', null); if(hair) wear.hair = hair;
   J.wearNow = wear; J.wearHid = hidC;   /* [v24] 레이어 창이 지금 입은 것을 보여주는 데 써요 */
   const its = {}; for(const c of Object.keys(wear)){ const it = await moItem(c, wear[c]); if(it) its[c] = it; else miss.push(c); }
   J.outfitMiss = miss.map(c => CATN[c] + ': ' + wear[c]);
+  /* [v25] 점검 기록 채우기: 모션 연결 여부 / 바뀌치기 여부 / 유난히 큰 그림 */
+  J.moLog.forEach(e => { if(e.hid) return; e.has = !!(its[e.c]); e.swap = e.mo !== e.bn; e.hasBn = J.moHas(e.c, e.bn);
+    const it = its[e.c]; if(it){ const v = it.v && (it.v.walk_r || it.v.walk_d || it.v.walk_f); if(v){ e.w = v[2]; e.h = v[3]; const lim = { weapon:260, shield:130, shoes:140, cape:140 }[e.c] || 110; e.big = Math.max(v[2], v[3]) >= lim; } } });
   const full = {}; let x0 = W, y0 = H, x1 = 0, y1 = 0;
   for(const key of KEYS){ const bv = moK(MO.base.v, key), [bx, by, bw, bh] = MO.base.box, arr = [];
     for(let f = 0; f < bv.length; f++){ const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d', { willReadFrequently:true });
       for(const c of order){ if(c === 'body'){ x.drawImage(J.moBase, bv[f][0], bv[f][1], bw, bh, bx, by, bw, bh); continue; } const it = its[c]; if(!it) continue; const v = moK(it.v, key); if(!v) continue; const p = v[4][f] || v[4][v[4].length - 1];
         if(it._e){ x.globalCompositeOperation = 'destination-out'; x.drawImage(it._e, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.globalCompositeOperation = 'source-over'; }
-        if(it._s) x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); }
+        if(it._s){ if(c === 'weapon' && J.strayWeapon(wear.weapon)){ const tw = document.createElement('canvas'); tw.width = W; tw.height = H; tw.getContext('2d').drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); x.drawImage(stripStray(tw, MO.base.box, W, H), 0, 0); } else x.drawImage(it._s, p[0], p[1], v[2], v[3], v[0], v[1], v[2], v[3]); } }
       const d = x.getImageData(0, 0, W, H).data;
       for(let yy = 0; yy < H; yy += 2) for(let xx = 0; xx < W; xx += 2) if(d[(yy * W + xx) * 4 + 3] > 8){ if(xx < x0) x0 = xx; if(xx > x1) x1 = xx; if(yy < y0) y0 = yy; if(yy > y1) y1 = yy; }
       arr.push(cv); }
