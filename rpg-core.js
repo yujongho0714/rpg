@@ -132,6 +132,7 @@ J.autoPack = async function(){
   for(let i = 0; i < 60 && !L.goldOk; i++) await new Promise(r => setTimeout(r, 100));   /* 가방이 저장소를 다 읽은 뒤에 적용 (안 그러면 옛 장비표가 덮어써요) */
   if(!L.goldOk) return;
   const n = L.applyPack(loot);
+  try{ if(L.purgeOld) L.purgeOld(); }catch(_){ }
   try{ L._mf = 0; if(L.moFix) L.moFix(); }catch(_){ }
   try{ localStorage.setItem(KEY, sig); }catch(_){ }
   try{ J.toast && J.toast('🎁 장비 ' + n + '개를 받았어요'); }catch(_){ }
