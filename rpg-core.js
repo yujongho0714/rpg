@@ -243,8 +243,8 @@ J.buildHero = async function(){
 };
 
 /* ===== 능력치: 끝말잇기 가방(장비) + 변신·동료 ===== */
-J.stats = function(){ const sh = J.share(), h = sh.hero || {}, tf = sh.tfS || {}, cp = sh.cpS || {};
+J.stats = function(){ const sh = J.share(), h = sh.hero || {}, tf = sh.tfS || {}, cp = sh.cpS || {}, dx = sh.dex || {};   /* [rpg-v31] dx = 도감 힘(R 공격·Q 체력·D 방어·C 치명, %) */
   let atk0 = h.atk || 0, hp0 = h.hp || 100;
   try{ if(J.L && J.L.atk){ atk0 = J.L.atk(); hp0 = J.L.hp(); } }catch(_){ }
-  return { atk: Math.round((40 + atk0) * (1 + (tf.R || 0) / 100) * J.CFG.heroAtk), hp: Math.round(Math.max(100, hp0) * (1 + (tf.Q || 0) / 100) * J.CFG.heroHp), tier: h.tier || 0, cpC: cp.C || 0, cp: sh.cp, tf: sh.tf }; };
+  return { atk: Math.round((40 + atk0) * (1 + ((tf.R || 0) + (dx.R || 0)) / 100) * J.CFG.heroAtk), hp: Math.round(Math.max(100, hp0) * (1 + ((tf.Q || 0) + (dx.Q || 0)) / 100) * J.CFG.heroHp), tier: h.tier || 0, def: dx.D || 0, crit: dx.C || 0, cpC: cp.C || 0, cp: sh.cp, tf: sh.tf }; };
 })(window.J);

@@ -143,7 +143,7 @@ function killMon(m, o){
 J.fallbackReward = async function(g, c){ const v = Number(await J.kget('gold')) || 0; await J.kset('gold', v + g); const cb = (await J.kget('cube')) || {}; Object.keys(c).forEach(k => cb[k] = (cb[k] || 0) + (c[k] || 0)); await J.kset('cube', cb); };
 
 /* ===== 영웅 ===== */
-function heroDmg(mul){ const s = J.stats(), cr = Math.random() < .15; return { d:Math.max(1, Math.round(s.atk * mul * (cr ? 1.5 : 1) * rnd(.9, 1.1))), cr }; }
+function heroDmg(mul){ const s = J.stats(), cr = Math.random() < .15 + (s.crit || 0) / 100; return { d:Math.max(1, Math.round(s.atk * mul * (cr ? 1.5 : 1) * rnd(.9, 1.1))), cr }; }
 function inFront(m, reach, depth){ const dx = (m.x - H.x) * H.face; return dx > -20 - m.r * .3 && dx < reach + m.r && Math.abs(m.z - H.z) < depth; }
 function alive(m){ return m.st !== 'dead' && m.st !== 'spawn'; }
 function canAct(){ return H.st === 'idle' || H.st === 'walk'; }
@@ -178,6 +178,7 @@ J.doRoll = function(){ if(G.over || H.cd.r > 0 || H.st === 'roll' || H.st === 'd
   let dx = J.INP.x, dz = J.INP.y; if(Math.hypot(dx, dz) < .2){ dx = H.face; dz = 0; } const l = Math.hypot(dx, dz); H.rdx = dx / l; H.rdz = dz / l; if(Math.abs(H.rdx) > .1) H.face = H.rdx > 0 ? 1 : -1;
   H.st = 'roll'; H.t = 0; H.inv = Math.max(H.inv, .32); H.cd.r = C().roll; S('roll'); dust(H.x, H.z, 6, 120); };
 function hurtHero(dmg, from){ if(H.inv > 0 || H.st === 'dead' || G.over || G.admin.god) return false;
+  { const df = J.stats().def || 0; if(df > 0) dmg = Math.max(1, Math.round(dmg * (1 - df / 100))); }   /* [rpg-v31] 도감 방어력 */
   G.php -= dmg; H.inv = .7; H.hurtT = .25; S('hurt'); shake(.3); hitStop(.05); num(H.x, 170, H.z, dmg, 'hurt'); flashA = .22; flashC = '#ff2a2a';
   const dir = from ? (H.x >= from.x ? 1 : -1) : -H.face; H.vx += dir * 380;
   if(H.st !== 'cast' && H.st !== 'leap'){ H.st = 'hurt'; H.t = 0; }
