@@ -89,9 +89,10 @@ function mkMon(kind, x, z, boss, minion){
   const m = { armor:0, stun:0, x, z, y:boss ? 900 : 700, vx:0, vz:0, vy:0, face:-1, boss:!!boss, el, minion:!!minion, hid:false, st:'spawn', t:0, at:0, cd:rnd(.6, 1.4), flash:0, hp, max:hp, atk, nm:'', im:null, dl:null, u:null, shk:0, ang:0, va:0, hb:1, hbT:0, slot:rnd(-1, 1), home:x, aggro:!!boss || !!minion, wander:0 };
   if(boss && G.hid){ m.hid = true; m.hp = m.max = (G.hid.hpB + G.hid.hpP * st) * 2 * C().monHp; m.atk = G.hid.aB + G.hid.aP * st; m.im = A.hidIm; m.nm = '🕳 ' + G.hid.nm; }
   else if(kind === 'dl' || (boss && !A.boss && A.bossDl)){ const u = boss ? A.bossDl : pick(A.dl); const gr = boss ? 3 + (Math.random() * 3 | 0) : (el ? 3 : u.g - 1);
-    m.u = u; m.dl = { gn:J.DLG.nm[gr], col:J.DLG.col[gr], gold:J.DLG.gold[gr] }; m.hp = m.max = hp * J.DLG.hp[gr] / (boss ? 1.6 : 1); m.atk = atk * J.DLG.atk[gr]; m.nm = (boss ? '👑 ' : '') + u.ko; }
+    m.u = u; m.dl = { gn:J.DLG.nm[gr], col:J.DLG.col[gr], gold:J.DLG.gold[gr], gr }; m.hp = m.max = hp * J.DLG.hp[gr] / (boss ? 1.6 : 1); m.atk = atk * J.DLG.atk[gr]; m.nm = (boss ? '👑 ' : '') + u.ko; }
   else { m.im = boss ? A.boss : pick(A.mob); m.nm = boss ? '👑 지역 보스' : el ? '⭐ 정예 몬스터' : '몬스터'; }
   if(!boss && !minion && !el && !m.hid && clnOk()){ m.cln = true; m.u = null; m.dl = null; m.im = CLNIM; m.hp *= 1.5; m.nm = '🃏 카드광대'; }   /* [rpg-v35] */
+  { const df = diffMul(); m.hp *= df.hp; m.atk *= df.atk; }   /* [rpg-v37] 끝말잇기와 같은 전직 단계별 난이도 */
   m.hp = m.max = Math.round(m.hp); m.atk = Math.round(m.atk);
   if(m.u){ const bb = m.u.bb; m.sc = boss ? 3.4 : 2.6; m.w = (bb[2] - bb[0]) * m.sc; m.h = (bb[3] - bb[1]) * m.sc; m.spr = new W.Spr(dlTex(m.u)); }
   else if(m.im){ m.h = (boss ? 300 : 170) * (el ? 1.15 : 1) * (minion ? .8 : 1); m.w = m.im.width * m.h / m.im.height; m.spr = new W.Spr(imTex(m.im)); }
@@ -137,17 +138,46 @@ function killMon(m, o){
   if(!m.boss){ G.kills++; if(m.sp) m.sp.n--; if(G.kills === G.quota) bossGateOpen(); }
   /* 보상: 끝말잇기와 같은 시스템 (골드·큐브·뽑기권·장비) */
   const L = J.L, el = rewardEl(m); let gold = 0;
-  try{ if(L && L.goldKill) gold = Math.round(L.goldKill(G.st, m.boss, m.el, m.hid) * C().goldMul * (m.dl ? Math.sqrt(m.dl.gold) : 1)); }catch(_){ }
+  try{ if(L && L.goldKill) gold = Math.round(L.goldKill(G.st, m.boss, m.el, m.hid) * C().goldMul * (m.dl ? Math.pow(m.dl.gold, C().dlGoldPow) : 1) * ((L.manGold && C().manGold) ? (L.manGold() || 1) : 1));   /* [rpg-v37] 끝말잇기와 같은 골드 (직접 플레이 ×2 포함) */ }catch(_){ }
   if(!gold){ const s = J.stats(); gold = Math.round((60 + 12 * G.st) * (m.boss ? 5 : 1) * (m.el ? 3 : 1) * (1 + 1.5 * s.tier) * C().goldMul); }
   const cub = {}; const rr = v => { v *= C().cubeMul; let n = Math.floor(v); if(Math.random() < v - n) n++; return n; };
   if(m.boss){ cub.red = rr(2); cub.black = rr(2); cub.sus = rr(5); } else { cub.sus = rr(1); if(Math.random() < .2 * C().cubeMul) cub[Math.random() < .5 ? 'red' : 'black'] = 1; }
-  if(L && L.addGold){ L.addGold(gold); try{ L.addCubes(cub); }catch(_){ } try{ if(Math.random() * 100 < C().ticketP || m.boss) L.dlxKill(m.hid ? 'hid' : m.boss ? 'boss' : m.el ? 'elite' : 'mob', null, el); else if(L.bonKill) L.bonKill(); }catch(_){ }   /* [rpg-v35] 뽑기권을 안 줘도 업적 처치 수는 매번 쌓아요 */
-    try{ if(Math.random() * 100 < (m.boss ? C().dropBoss : m.el ? C().dropP * 3 : C().dropP)){ window.RPG.st = G.st; L.drop(m.boss, el, m.hid ? 'h' + (G.hid.i || 0) : G.st); S('loot'); } }catch(e){ console.warn(e); } }
+  if(L && L.addGold){ L.addGold(gold); try{ L.addCubes(cub); }catch(_){ } try{ if(Math.random() * 100 < C().ticketP || m.boss) L.dlxKill(m.hid ? 'hid' : m.boss ? 'boss' : m.el ? 'elite' : 'mob', monInfo(m), el, true); else if(L.bonKill) L.bonKill(); }catch(_){ }   /* [rpg-v35] 뽑기권을 안 줘도 업적 처치 수는 매번 쌓아요 */
+    try{ const dfn = L.dropM || L.drop, sid = m.hid ? 'h' + (G.hid.i || 0) : G.st;   /* [rpg-v37] 끝말잇기 직접 플레이와 같은 드랍(큐브 포함) */
+      const go = () => { window.RPG.st = G.st; dfn.call(L, m.boss, el, sid); S('loot'); };
+      if(Math.random() * 100 < (m.boss ? C().dropBoss : m.el ? C().dropP * 3 : C().dropP)) go();
+      if(m.el && C().eliteTwice && Math.random() * 100 < C().dropP * 3) setTimeout(go, 450); }catch(e){ console.warn(e); } }
   else J.fallbackReward(gold, cub);
   if(m.cln){ try{ L.clownKill(el); label(m.x, m.h + 120, m.z, '🃏 카드광대 선물!', '#ffd23f', 26); }catch(e){ console.warn(e); } }   /* [rpg-v35] */
+  killExp(m);
   const nc = m.boss ? 14 : m.el ? 6 : 3; for(let i = 0; i < nc; i++) COINS.push({ x:m.x, z:m.z, y:m.h * .5, vx:rnd(-1, 1) * 240, vz:rnd(-1, 1) * 60, vy:rnd(380, 680), t:0, v:i === 0 ? gold : 0 });
   let k = 0; [['sus','🔷'],['red','🟥'],['black','⬛']].forEach(([c, e]) => { if(cub[c]) label(m.x + 50, m.h + 80 + (k++) * 28, m.z, e + '×' + cub[c], '#e6f6ff', 20); });
   if(m.boss) bossDown(m); }
+/* [rpg-v37] 전직 단계별 난이도 (끝말잇기 RPG_DIFF 와 같은 값 · 패치가 있으면 그 값) */
+function diffMul(){
+  if(!C().diff || (window.jdpOn && !window.jdpOn('diff'))) return { hp:1, atk:1 };
+  let t = 0; try{ t = (window.RPG_TIER ? window.RPG_TIER() : 0) | 0; }catch(_){ } t = clamp(t, 0, 7);
+  const HP = [100, 145, 210, 300, 430, 620, 890, 1280], AT = [100, 115, 130, 150, 170, 195, 225, 260];
+  let D = null; try{ D = window.JDP && JDP.data && JDP.data('df'); }catch(_){ }
+  const g = (k, A) => { const v = D && Array.isArray(D[k]) && D[k][t] != null && D[k][t] !== '' ? Number(D[k][t]) : A[t]; return (isFinite(v) && v > 0 ? v : A[t]) / 100; };
+  return { hp:g('hp', HP), atk:g('atk', AT) }; }
+/* [rpg-v37] 카드 드랍용 몬스터 정보 (듀얼리스트 등급 몬스터만) */
+function monInfo(m){ if(!m.dl || !m.u || m.dl.gr == null) return null; return { g:m.dl.gr + 1, k:m.u.k, ko:m.u.ko, gn:m.dl.gn, col:m.dl.col }; }
+/* [rpg-v37] 처치 경험치 — 끝말잇기와 같은 시간 기준: (전직 한 구간 필요 경험치 ÷ 목표 분) × 지난 초(최대 cap초) · 보스 ×expBoss · 정예 ×expElite */
+function killExp(m){
+  try{ const K = C(); if(!K.expOn || m.minion) return; const L = J.L;
+    const now = Date.now(), dts = Math.min(K.expCap, Math.max(0, (now - (G.xpT || now)) / 1000)); G.xpT = now;
+    const lv = (window.RPG_LVNOW ? window.RPG_LVNOW() : (window.RPG_LV | 0)) || 1, sp = window.JD_RANK_SPAN || window.RPG_RANK_SPAN; if(!sp) return;
+    const xb = Math.max(1, Math.round(sp(Math.floor(lv / 30)) / (K.expMin * 60) * dts * (m.boss ? K.expBoss : 1)));
+    const xm = (L && L.mult && L.mult()) || 1, xf = (L && L.optSum && L.optSum('X')) || 0;
+    let ev = 1; try{ if(window.JD_EXP2X && window.JD_EXP2X()) ev = (window.JD_EXPM && window.JD_EXPM()) || 2; }catch(_){ }
+    ev = Math.max(ev, K.expMul > 0 ? K.expMul : 1);   /* [rpg-v39] 경험치 배율 — 끝말잇기 경험치 이벤트와는 큰 값 하나만 (겹쳐서 곱하지 않아요) */
+    const hx = m.hid && window.RPG_HID && window.RPG_HID.xp ? window.RPG_HID.xp : 1;
+    const xg = Math.round((Math.round(xb * hx * (m.el ? K.expElite : 1) * xm) + xf) * ev);
+    const give = window.RPG_KILL_EXP || window.RPG_GIVE_EXP, r = give ? give(xg) : null;
+    label(m.x, m.h + 170, m.z, 'EXP +' + J.fmt(xg), '#9fe8ff', 22);
+    if(r && r.next > r.prev) J.toast('🎖️ ' + r.next + '계급 달성!');
+  }catch(e){ console.warn('exp', e); } }
 J.fallbackReward = async function(g, c){ const v = Number(await J.kget('gold')) || 0; await J.kset('gold', v + g); const cb = (await J.kget('cube')) || {}; Object.keys(c).forEach(k => cb[k] = (cb[k] || 0) + (c[k] || 0)); await J.kset('cube', cb); };
 
 /* ===== 영웅 ===== */

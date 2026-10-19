@@ -4,14 +4,15 @@ window.J = window.J || {};
 (function(J){
 /* ===== 설정 (운영자 모드 에디터에서 바꿀 수 있어요) ===== */
 J.CFG0 = {
-  goldMul: 0.5,      // 끝말잇기 몬스터 골드 × 이 값
-  cubeMul: 0.5,      // 큐브 × 이 값
-  dropP: 12,         // 일반 몬스터 장비 드롭 확률(%) — 끝말잇기와 같은 장비표
+  goldMul: 1,      // 끝말잇기 몬스터 골드 × 이 값
+  expMul: 1,       // [rpg-v39] 경험치 × 이 값 (실시간 이벤트에서도 써요)
+  cubeMul: 1,      // 큐브 × 이 값 [rpg-v38] 0 → 1 (예전엔 큐브가 아예 안 나왔어요)
+  dropP: 100,         // 일반 몬스터 장비 드롭 확률(%) — 끝말잇기와 같은 장비표
   dropBoss: 100,     // 보스 장비 드롭 확률(%)
-  ticketP: 30,       // 변신·동료 뽑기권 드롭 검사 확률(%) — 끝말잇기와 같은 확률표를 이만큼만 돌려요
-  quota: 18,         // 보스 문이 열리는 사냥 수
+  ticketP: 100,       // 변신·동료 뽑기권 드롭 검사 확률(%) — 끝말잇기와 같은 확률표를 이만큼만 돌려요
+  quota: 14,         // 보스 문이 열리는 사냥 수 [rpg-v38] 18 → 14
   mapLen: 4200,      // 맵 길이
-  bossHp: 2.5,       // 보스 체력 배율
+  bossHp: 2,       // 보스 체력 배율 [rpg-v38] 2.5 → 2
   monHp: 1, monAtk: 1, // 몬스터 체력·공격 배율
   heroAtk: 1, heroHp: 1, // 내 공격·체력 배율
   combo: [0.45, 0.45, 0.9],
@@ -20,17 +21,166 @@ J.CFG0 = {
   s3: 2.6, s3cd: 15, // 필살기 운석
   roll: 0.7, pot: 40, pots: 3,
   respawn: 7,        // 몬스터 다시 나오는 시간(초)
-  hidP: 3,           // 보스 잡으면 히든 포탈 확률(%)
+  hidP: 6,           // [rpg-v38] 3 → 6 (보스 잡으면 히든 포탈 확률 %)
+  /* [rpg-v37] 끝말잇기와 같게 맞추는 값들 (1 = 켬 / 0 = 끔) — 골드·드랍·뽑기권은 위 숫자를 끝말잇기와 같게 바꿨어요 */
+  diff: 1,           // 전직 단계별 몬스터 체력·공격 배율 (끝말잇기와 같음)
+  dlGoldPow: 1,      // 듀얼리스트 몬스터 골드 배율의 거듭제곱 (1 = 끝말잇기와 같음 · 0.5 = 예전 제곱근)
+  manGold: 1,        // 직접 플레이 골드 보너스(×2) 적용
+  eliteTwice: 1,     // 정예는 장비를 한 번 더 굴림
+  expOn: 1, expMin: 180, expCap: 60, expBoss: 1.5, expElite: 2,   // 처치 경험치 (전직 한 구간을 expMin분에 · 처치 사이 최대 expCap초)           // 보스 잡으면 히든 포탈 확률(%)
   curve: 0,          // 글로브뷰 휘어짐 (0 = 평평 · 어지러워서 기본은 끔)
   /* 타격감 — 1 = 기본, 0 = 끄기, 2 = 두 배. 최종 세기 = 전체 × 각 항목 */
   fxAll: 1, fxStop: 1, fxShake: 1, fxFlash: 1, fxSpark: 1, fxGlow: 1, fxPop: 1, fxZoom: 1, fxSquash: 1
 };
 J.CFG = Object.assign({}, J.CFG0);
 /* [v20] 끝말잇기 쪽 성별·기본몸 함수는 RPG에 안 들어와요 → 가방 그림(L.draw)이 여자 몸으로 떨어지지 않게 여기서 남자로 고정 */
-J.VER = 'rpg-v35';
+J.VER = 'rpg-v38';
+/* [rpg-v38] 🛠 스테이지 보정 (update-v129): 예전에 열려 있던 스테이지 기록을 한 번만 처음으로 돌려요.
+   · 끝말잇기(index3)와 같은 칸(jd_st_clr · jd_st_pick · jd_best_st · rpg_prog)을 같이 쓰므로 어느 쪽이 먼저 열려도 한 번만 실행돼요
+   · 보정 뒤에 새로 깬 스테이지는 그대로 인정돼요 (jd_fix_st 표시가 있으면 다시는 안 건드려요)
+   · 예전 기록은 jd_st_bak129 에 그대로 백업해 둬요 */
+J.stageFix = function(){ try{
+  const FK = 'jd_fix_st', FV = 129;
+  if((parseInt(localStorage.getItem(FK), 10) || 0) >= FV) return false;
+  const bak = {}; ['jd_st_clr', 'jd_st_pick', 'jd_best_st', 'rpg_prog'].forEach(k => { const v = localStorage.getItem(k); if(v != null) bak[k] = v; });
+  localStorage.setItem('jd_st_bak129', JSON.stringify(bak));
+  localStorage.removeItem('jd_st_clr'); localStorage.removeItem('jd_st_pick');
+  localStorage.setItem('jd_best_st', '0'); localStorage.setItem('rpg_prog', JSON.stringify({ clr:0, pick:1 }));
+  localStorage.setItem(FK, String(FV));
+  return true;
+}catch(_){ return false; } };
+J.stageFix();
 window.JD_HERO_SEX = window.JD_HERO_SEX || function(){ return 'M'; };
 window.JD_HERO_IDLE = window.JD_HERO_IDLE || function(){ return J.moBase ? { im:J.moBase } : null; };
 J.cfgApply = function(o){ if(!o || typeof o !== 'object') return; Object.keys(J.CFG0).forEach(k => { if(o[k] == null) return; if(Array.isArray(J.CFG0[k])){ if(Array.isArray(o[k]) && o[k].length === J.CFG0[k].length) J.CFG[k] = o[k].map(Number); } else if(isFinite(+o[k])) J.CFG[k] = +o[k]; }); };
+
+/* ===== [rpg-v39] 실시간 전체 배율 — 운영자가 Firebase(jd_live/config)에 값을 넣으면 모든 폰이 새로고침 없이 바뀌어요 =====
+   · 읽기만 해요 (쓰기는 3단계 운영자 화면에서) · 폰 저장값(rpg_cfg_local)에는 절대 쓰지 않아요 → 이벤트가 끝나면 저절로 원래 값
+   · 인터넷이 없거나 Firebase가 안 불러와져도 게임은 그대로 돼요 */
+J.live = (function(){
+  const FB = { apiKey:'AIzaSyBhQaR8YuG4CovQgFBaPKd2nZSO7ZjP0PY', authDomain:'taekwondo-wordgame.firebaseapp.com', databaseURL:'https://taekwondo-wordgame-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'taekwondo-wordgame', storageBucket:'taekwondo-wordgame.firebasestorage.app', messagingSenderId:'376591184218', appId:'1:376591184218:web:d4a4ee50773e787e300363' };
+  const VER = '10.12.2', LAST = 'rpg_live_last';
+  /* 받을 수 있는 키와 범위 (이 밖의 키·숫자가 아닌 값·범위 밖 값은 무시) */
+  const LIM = { goldMul:[0.01, 10], cubeMul:[0.01, 10], expMul:[0.01, 10], monHp:[0.01, 10], bossHp:[0.01, 10], dropP:[0, 1000], dropBoss:[0, 1000], ticketP:[0, 1000], hidP:[0, 100] };
+  const S = { cfg:null, off:0, saved:{}, over:{}, ev:null, db:null, started:false, tried:0, first:true, sig:'' };
+  const api = { onChange:null };
+  const now = () => Date.now() + S.off;
+  const num = (k, v) => { const L = LIM[k]; v = (typeof v === 'number') ? v : (typeof v === 'string' && v.trim() !== '' ? +v : NaN); return (isFinite(v) && v >= L[0] && v <= L[1]) ? v : null; };
+  const fire = () => { try{ api.onChange && api.onChange(); }catch(_){ } };
+  function calc(cfg){   /* 지금 켜져 있는 값만 골라요 (이벤트 시간이 지났으면 아무것도 안 켬) */
+    const over = {}; let ev = null;
+    if(!cfg || typeof cfg !== 'object') return { over, ev };
+    const e = cfg.event;
+    if(e && typeof e === 'object' && +e.endAt > 0){ if(+e.endAt <= now()) return { over, ev, ended:true }; ev = { name:String(e.name || ''), endAt:+e.endAt }; }
+    Object.keys(LIM).forEach(k => { if(cfg[k] == null) return; const v = num(k, cfg[k]); if(v != null) over[k] = v; });
+    return { over, ev };
+  }
+  function put(over){   /* J.CFG에 얹기 · 빠진 키는 원래 값으로 되돌리기 */
+    Object.keys(S.saved).forEach(k => { if(!(k in over)){ J.CFG[k] = S.saved[k]; delete S.saved[k]; } });
+    Object.keys(over).forEach(k => { if(!(k in S.saved)) S.saved[k] = J.CFG[k]; J.CFG[k] = over[k]; });
+    S.over = over;
+  }
+  const sig = (o, ev) => JSON.stringify([o, ev && ev.endAt]);
+  function refresh(quiet){
+    const r = calc(S.cfg), s = sig(r.over, r.ev), had = Object.keys(S.over).length > 0;
+    put(r.over); S.ev = r.ev;
+    if(s !== S.sig){
+      S.sig = s;
+      if(!quiet){
+        if(Object.keys(r.over).length) J.toast('🔥 ' + (r.ev && r.ev.name ? r.ev.name : '이벤트') + ' 시작! 위쪽 표시를 확인해요');
+        else if(had) J.toast('⏰ 이벤트가 끝났어요. 원래 값으로 돌아갔어요');
+      }
+    }
+    fire();
+  }
+  function save(){ try{ if(S.cfg) J.LS.set(LAST, { cfg:S.cfg, off:S.off }); else J.LS.set(LAST, null); }catch(_){ } }
+  function loadJs(src){ return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = ok; s.onerror = () => no(new Error(src)); document.head.appendChild(s); }); }
+  async function connect(){
+    if(S.db) return;
+    if(!(window.firebase && firebase.initializeApp && firebase.database)){
+      const b = 'https://www.gstatic.com/firebasejs/' + VER + '/';
+      if(!(window.firebase && firebase.initializeApp)) await loadJs(b + 'firebase-app-compat.js');
+      if(!(firebase.database)) await loadJs(b + 'firebase-database-compat.js');
+    }
+    let app = null; try{ app = firebase.apps.find(a => a.name === 'jdlive'); }catch(_){ }
+    if(!app) app = firebase.initializeApp(FB, 'jdlive');   /* 앱 이름 jdlive — 끝말잇기(online)·클라우드(jdcloud)와 안 겹쳐요 */
+    S.db = app.database();
+    S.db.ref('.info/serverTimeOffset').on('value', s => { S.off = Number(s && s.val()) || 0; refresh(true); });
+    S.db.ref('jd_live/config').on('value', s => {
+      S.cfg = s ? s.val() : null; save();
+      const q = S.first; S.first = false; refresh(q);
+    }, () => { });
+  }
+  api.start = function(){
+    if(S.started) return; S.started = true;
+    try{ const l = J.LS.get(LAST, null); if(l && l.cfg){ S.cfg = l.cfg; S.off = Number(l.off) || 0; refresh(true); } }catch(_){ }   /* 인터넷이 없어도 마지막 값(아직 안 끝났다면) */
+    const go = () => { connect().catch(() => { S.db = null; }); };
+    go();
+    setInterval(() => { try{ if(!S.db && ++S.tried < 40) go(); refresh(false); }catch(_){ } }, 30000);   /* 30초마다: 이벤트가 끝났나 보고, 값을 다시 확인해요 */
+  };
+  /* 숫자 에디터가 J.CFG를 바꿔도 실시간 값이 이기도록 / 에디터에는 '원래 값'을 보여주도록 */
+  api.base = function(k){ return (k in S.saved) ? S.saved[k] : J.CFG[k]; };
+  api.rebase = function(o){ Object.keys(S.saved).forEach(k => { if(!o || (k in o)) S.saved[k] = J.CFG[k]; }); Object.keys(S.over).forEach(k => { J.CFG[k] = S.over[k]; }); fire(); };
+  api.state = function(){ return { over:S.over, ev:S.ev, base:S.saved, now:now() }; };
+  /* 위쪽 표시 글자: 원래와 다른 것만 */
+  api.badge = function(){
+    const o = S.over, b = k => (k in S.saved ? S.saved[k] : J.CFG[k]), p = [];
+    const m = (k, nm) => { if(k in o && Math.abs(o[k] - b(k)) > 1e-9) p.push(nm + '×' + (Math.round(o[k] * 100) / 100)); };
+    const q = (k, nm) => { if(k in o && Math.abs(o[k] - b(k)) > 1e-9) p.push(nm + ' ' + Math.round(o[k]) + '%'); };
+    m('expMul', '경험치'); m('goldMul', '골드'); m('cubeMul', '큐브'); q('dropP', '장비 드롭'); q('dropBoss', '보스 드롭'); q('ticketP', '뽑기권');
+    if(!p.length) return '';
+    let t = '🔥 ' + p.join(' · ');
+    if(S.ev){ const d = new Date(S.ev.endAt), z = n => ('0' + n).slice(-2), tm = z(d.getHours()) + ':' + z(d.getMinutes()); t += ' · ' + (S.ev.endAt - now() > 864e5 ? (d.getMonth() + 1) + '/' + d.getDate() + ' ' : '') + tm + '까지'; }
+    return t;
+  };
+
+  /* ===== [rpg-v40] 운영자 쓰기 — 구글 로그인 + 전체 적용 (규칙: 운영자 이메일 + 이메일 인증된 구글 계정만 쓸 수 있어요) ===== */
+  const OP = 'schp2223@gmail.com';
+  api.now = now; api.lim = LIM; api.OP = OP; api.onAuth = null;
+  function authReady(){
+    return connect().then(async () => {
+      if(!(firebase.auth)) await loadJs('https://www.gstatic.com/firebasejs/' + VER + '/firebase-auth-compat.js');
+      if(!S.auth){
+        S.auth = firebase.app('jdlive').auth();
+        S.auth.onAuthStateChanged(() => { try{ api.onAuth && api.onAuth(); }catch(_){ } });
+        try{ S.auth.getRedirectResult().catch(() => { }); }catch(_){ }
+      }
+      return S.auth;
+    });
+  }
+  api.init = () => authReady();
+  api.user = () => { try{ const u = S.auth && S.auth.currentUser; return u ? { email:u.email || '', ok:(u.email === OP && u.emailVerified === true) } : null; }catch(_){ return null; } };
+  api.login = async function(){
+    const a = await authReady(), p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt:'select_account' });
+    try{ await a.signInWithPopup(p); }
+    catch(e){
+      const c = e && e.code;
+      if(c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment' || c === 'auth/web-storage-unsupported'){ await a.signInWithRedirect(p); return; }
+      if(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+      throw e;
+    }
+  };
+  api.logout = async function(){ const a = await authReady(); await a.signOut(); };
+  /* 값 검사 — 문제가 있으면 쉬운 말 글자를, 괜찮으면 null */
+  api.check = function(cfg){
+    const ks = Object.keys(cfg || {}).filter(k => k in LIM);
+    if(!ks.length) return '바꿀 값을 하나 이상 넣어 주세요';
+    for(const k of ks){ if(num(k, cfg[k]) == null) return (k + ' 값이 범위 밖이에요 (' + LIM[k][0] + ' ~ ' + LIM[k][1] + ')'); }
+    return null;
+  };
+  function needOp(){ const u = api.user(); if(!u) throw new Error('먼저 구글로 로그인해 주세요'); if(!u.ok) throw new Error('운영자 계정이 아니에요 (' + u.email + ')'); return u; }
+  api.publish = async function(cfg, ev){
+    const u = needOp(), bad = api.check(cfg); if(bad) throw new Error(bad);
+    const out = {}; Object.keys(cfg).forEach(k => { if(k in LIM) out[k] = num(k, cfg[k]); });
+    if(ev && ev.endAt){ if(ev.endAt <= now()) throw new Error('끝나는 시각이 이미 지났어요'); out.event = { name:String(ev.name || '이벤트').slice(0, 30), endAt:ev.endAt }; }
+    out.updatedAt = firebase.database.ServerValue.TIMESTAMP; out.updatedBy = u.email;
+    await connect(); await S.db.ref('jd_live/config').set(out);
+  };
+  api.clear = async function(){ needOp(); await connect(); await S.db.ref('jd_live/config').remove(); };
+  api.errText = function(e){ const c = e && e.code, m = (e && e.message) || ''; if(c === 'PERMISSION_DENIED' || /permission_denied/i.test(m)) return '운영자 계정이 아니라서 거부됐어요'; if(c === 'auth/unauthorized-domain') return '이 주소가 Firebase 로그인 허용 목록에 없어요 (콘솔 → Authentication → 설정 → 승인된 도메인)'; if(c === 'auth/network-request-failed') return '인터넷이 불안정해요'; return m || '실패했어요'; };
+  return api;
+})();
+{ const _ca = J.cfgApply; J.cfgApply = function(o){ _ca(o); try{ J.live.rebase(o); }catch(_){ } }; }   /* 에디터·파일로 값을 넣어도 실시간 값이 먼저예요 */
 
 /* ===== 작은 도구 ===== */
 J.$ = id => document.getElementById(id);
@@ -86,6 +236,9 @@ J.share = () => J.LS.get('jd_share', null) || {};
     log[name] = nt; rkPut(log); try{ window.RPG_LV = nx; }catch(_){ }
     return { ok:true, add:-n };
   };
+  /* [rpg-v37] 전투 보상이 쓰는 계급 도우미 — 지금 계급 레벨 · 전직 구간 필요 경험치 */
+  window.RPG_LVNOW = function(){ const log = rkGet(), n = rkName(log); return n ? lvOf(+log[n] || 0) : 1; };
+  window.RPG_RANK_SPAN = function(t){ t = Math.max(0, t | 0); const a = Math.max(1, 30 * t), b = Math.min(RK_MAX, 30 * (t + 1)); return Math.max(1, CUM[b] - CUM[a]); };
 })();
 
 /* ===== 소리: 듀얼리스트 효과음(CC0) + 배경음악 ===== */
@@ -141,6 +294,9 @@ J.boot = async function(){
   J.msg('끝말잇기 정보 읽는 중… (처음 한 번은 조금 오래 걸려요)');
   try{ const r = await fetch('rpg-config.json', { cache:'no-cache' }); if(r.ok) J.cfgApply(await r.json()); }catch(_){ }
   J.cfgApply(J.LS.get('rpg_cfg_local', null));
+  /* [rpg-v38] 밸런스 조정: 예전에 이 폰에 저장된 숫자가 있어도 보상 관련 값은 한 번만 새 기본값으로 맞춰요 (그 뒤 에디터에서 바꾼 값은 그대로) */
+  try{ if(!J.LS.get('rpg_bal_v38', 0)){ ['cubeMul', 'quota', 'bossHp', 'hidP'].forEach(k => { J.CFG[k] = J.CFG0[k]; }); const sv = J.LS.get('rpg_cfg_local', null); if(sv && typeof sv === 'object'){ ['cubeMul', 'quota', 'bossHp', 'hidP'].forEach(k => { sv[k] = J.CFG0[k]; }); J.LS.set('rpg_cfg_local', sv); } J.LS.set('rpg_bal_v38', 1); } }catch(_){ }
+  try{ J.live.start(); }catch(_){ }   /* [rpg-v39] 실시간 배율 (기다리지 않고 뒤에서 연결) */
   const sh = J.share(), cands = [];
   try{ if(sh.page){ const u = new URL(sh.page, location.href); if(u.origin === location.origin) cands.push(u.pathname); } }catch(_){ }
   cands.push('/index3/', '../index3/', '../', 'index3.html');
