@@ -88,13 +88,13 @@ function setMenu(){ const tfL = J.LS.get('rpg_tflook', false);
   const { o, close } = overlay('<div class="box"><h2>⚙ 설정 <button type="button" data-x>✕</button></h2><div class="mn">' +
     '<button type="button" data-m="snd">' + (J.SND.on ? '🔊 효과음 끄기' : '🔇 효과음 켜기') + '</button><button type="button" data-m="bgm">' + (J.SND.mus ? '🎵 음악 끄기' : '🎵 음악 켜기') + '</button>' +
     '<button type="button" data-m="tf">' + (tfL ? '🧍 내 장비 모습으로' : '🦸 변신 모습으로 싸우기') + '</button><button type="button" data-m="hair">💇 헤어</button><button type="button" data-m="layer">🧅 레이어 순서</button>' +
-    '<button type="button" data-m="pow">⚡ 전투력</button><button type="button" data-m="diag">🔍 그림 상태</button><button type="button" data-m="help">❓ 하는 법</button><button type="button" data-m="admin">' + (isAdmin() ? '🛠 운영자 메뉴' : '🔐 운영자 모드') + '</button></div>' +
+    '<button type="button" data-m="pow">⚡ 전투력</button><button type="button" data-m="diag">🔍 그림 상태</button><button type="button" data-m="help">❓ 하는 법</button><button type="button" data-m="mail">📬 우편함</button><button type="button" data-m="admin">' + (isAdmin() ? '🛠 운영자 메뉴' : '🔐 운영자 모드') + '</button></div>' +
     (J.outfitMiss && J.outfitMiss.length ? '<p class="note">아직 움직이는 그림이 없는 장비예요 (자무주 수집기로 받으면 나와요)\n' + J.outfitMiss.join('\n').replace(/</g, '&lt;') + '</p>' : '') + '</div>');
   o.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if(!b) return; const m = b.dataset.m; close();
     if(m === 'snd'){ J.SND.on = !J.SND.on; J.toast(J.SND.on ? '🔊 효과음 켰어요' : '🔇 효과음 껐어요'); }
     else if(m === 'bgm'){ J.SND.mus = !J.SND.mus; J.toast(J.SND.mus ? '🎵 음악 켰어요' : '음악 껐어요'); }
     else if(m === 'tf'){ const s = J.stats(); if(!tfL && !s.tf){ J.toast('먼저 🦸 변신·동료에서 변신 카드를 끼워 주세요'); return; } J.LS.set('rpg_tflook', !tfL); J.refreshHero(); }
-    else if(m === 'pow') J.powOpen(); else if(m === 'hair') hairMenu(); else if(m === 'layer') layerMenu(); else if(m === 'help') help(); else if(m === 'diag') diag(); else if(m === 'admin') adminMenu(); }); }
+    else if(m === 'pow') J.powOpen(); else if(m === 'hair') hairMenu(); else if(m === 'layer') layerMenu(); else if(m === 'help') help(); else if(m === 'diag') diag(); else if(m === 'admin') adminMenu(); else if(m === 'mail') mailBox(); }); }
 function diag(){ const L = J.L, A = J.G.A || {}, eq = L && L.eq ? Object.keys(L.eq).length : 0, dlLoaded = J.DL ? J.DL.units.filter(u => u.im).length : 0;
   const rows = [
     ['끝말잇기 연결', J.LIB.map.length ? '✅ 됨' : '❌ 못 읽음 (인터넷 확인 후 다시 열기)'],
@@ -195,7 +195,7 @@ function adminMenu(){ if(!isAdmin()){ const { o, close } = overlay('<div class="
     '<button type="button" data-a="kill">☠ 몬스터 다 쓰러뜨리기</button><button type="button" data-a="stage">🗺 스테이지 이동</button>' +
     '<button type="button" data-a="gold">💰 골드 +100만</button><button type="button" data-a="tk">🎫 뽑기권 +10장씩</button>' +
     '<button type="button" data-a="cube">🔷 큐브 +10개씩</button><button type="button" data-a="full">❤ 체력·물약 가득</button>' +
-    '<button type="button" data-a="live" style="grid-column:1/-1;background:#7a2a00;color:#ffe9a8">🌐 전체 배율 (모든 폰에 적용)</button><button type="button" data-a="edit">✏ 내 폰 숫자 (테스트용)</button><button type="button" data-a="pw">🔑 비밀번호 바꾸기</button>' +
+    '<button type="button" data-a="live" style="grid-column:1/-1;background:#7a2a00;color:#ffe9a8">🌐 전체 배율 (모든 폰에 적용)</button><button type="button" data-a="send" style="grid-column:1/-1;background:#1c3a7a;color:#cfe2ff">📮 우편 보내기 (모든 아이에게)</button><button type="button" data-a="edit">✏ 내 폰 숫자 (테스트용)</button><button type="button" data-a="pw">🔑 비밀번호 바꾸기</button>' +
     '<button type="button" data-a="off" style="grid-column:1/-1">운영자 모드 끄기</button></div><p class="note">운영자 모드는 이 폰·이 창에서만 켜져요. 앱을 다시 열면 꺼져요.</p></div>');
   o.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; const k = b.dataset.a, L = J.L;
     if(k === 'god'){ a.god = !a.god; b.classList.toggle('on', a.god); b.textContent = '🛡 무적 ' + (a.god ? 'ON' : 'OFF'); return; }
@@ -207,7 +207,7 @@ function adminMenu(){ if(!isAdmin()){ const { o, close } = overlay('<div class="
     else if(k === 'cube'){ if(L){ L.addCubes({ sus:10, red:10, black:10 }); J.toast('🔷🟥⬛ +10개씩'); } }
     else if(k === 'full'){ G.php = G.pmax; G.pot = J.CFG.pots; }
     else if(k === 'edit') editor();
-    else if(k === 'live') livePanel();
+    else if(k === 'live') livePanel(); else if(k === 'send') mailSend();
     else if(k === 'pw'){ const n = prompt('새 운영자 비밀번호 (4글자 이상)'); if(n && n.length >= 4){ J.LS.set('rpg_admin_pw', hash(n)); J.toast('🔑 바꿨어요 (이 폰에만 저장)'); } }
     else if(k === 'off'){ try{ sessionStorage.removeItem('rpg_admin'); }catch(_){ } a.god = a.one = false; document.body.classList.remove('admin'); J.toast('운영자 모드 껐어요'); } }); }
 
@@ -297,6 +297,102 @@ function editor(){ const cur = new Proxy(J.CFG, { get:(t, k) => (J.live ? J.live
     el.textContent = t; el.style.display = '';
   }
   if(J.live) J.live.onChange = draw;
+})();
+
+
+/* ===== [rpg-v42] 📮 우편 보내기 패널 (운영자) ===== */
+function mailSend(){
+  const LV = J.live, MA = J.mailAdmin; if(!LV || !MA){ J.toast('우편 기능이 아직 준비 안 됐어요'); return; }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const f = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const inp = (k, l) => '<label style="display:inline-block;margin:2px 6px 2px 0"><small>' + l + '</small><br><input class="inp" data-r="' + k + '" inputmode="numeric" placeholder="0" style="width:96px"></label>';
+  const { o, close } = overlay('<div class="box"><h2>📮 우편 보내기 <button type="button" data-x>✕</button></h2>' +
+    '<p class="note">① 받는 사람 → ② 제목·내용 → ③ 보상 → [보내기]. 보내면 아이들 폰 왼쪽 위에 📬 빨간 점이 떠요. 회수하면 바로 사라지지만, 이미 받은 보상은 안 돌려받아요.</p>' +
+    '<div id="ms-st" class="note"></div>' +
+    '<div class="mn"><button type="button" data-p="gift">🎁 이벤트 선물</button><button type="button" data-p="tk">🎫 뽑기권 10장</button><button type="button" data-p="gold">💰 골드 100만</button></div>' +
+    '<label><b>① 받는 사람</b><select class="inp" id="ms-to"><option value="all">모든 아이</option><option value="one">한 명만 (이름 직접 입력)</option></select></label>' +
+    '<input class="inp" id="ms-nm" placeholder="아이 이름 (랭킹에 쓰는 이름 그대로)" maxlength="30" style="display:none">' +
+    '<label><b>② 제목</b><input class="inp" id="ms-ti" maxlength="40"></label>' +
+    '<label><b>내용</b><textarea class="inp" id="ms-bo" rows="3" maxlength="500"></textarea></label>' +
+    '<div><b>③ 보상</b><br>' + inp('gold', '💰 골드') + inp('sus', '🔷 큐브') + inp('red', '🟥 큐브') + inp('black', '⬛ 큐브') + inp('t1', '🎫 뽑기권') + inp('t2', '🎟 뽑기권') + '</div>' +
+    '<label><b>④ 언제까지 받을 수 있나</b><select class="inp" id="ms-du"><option value="1">1일</option><option value="3">3일</option><option value="7" selected>7일</option><option value="30">30일</option><option value="0">기한 없음</option></select></label>' +
+    '<div id="ms-er" class="note" style="color:#ff8a7a"></div>' +
+    '<div class="mn" style="margin-top:8px"><button type="button" data-s="go" id="ms-go">📮 보내기</button><button type="button" data-x>닫기</button></div>' +
+    '<h3 style="margin:12px 0 2px;font-size:14px">보낸 우편 (최근 20개)</h3><div id="ms-ls" class="note">불러오는 중…</div></div>');
+  const $q = s => o.querySelector(s), er = t => { $q('#ms-er').textContent = t || ''; };
+  const PRE = { gift:{ ti:'🎁 이벤트 선물', bo:'도장 친구들, 이벤트 선물이에요!', rw:{ gold:1000000, t1:5, t2:5 } }, tk:{ ti:'🎫 뽑기권 선물', bo:'뽑기권 10장을 보내요.', rw:{ t1:10 } }, gold:{ ti:'💰 골드 선물', bo:'골드 100만을 보내요.', rw:{ gold:1000000 } } };
+  function status(){
+    const u = LV.user();
+    $q('#ms-st').innerHTML = !u ? '로그인 안 됨 <button type="button" data-s="login">🔑 구글로 로그인</button>' : (!u.ok ? '<span style="color:#ff8a7a">운영자 계정이 아니에요 (' + esc(u.email) + ')</span> <button type="button" data-s="logout">다른 계정으로</button>' : '로그인됨: ' + esc(u.email) + ' <button type="button" data-s="logout">로그아웃</button>');
+    $q('#ms-go').disabled = !(u && u.ok);
+  }
+  const prevA = LV.onAuth; LV.onAuth = () => { try{ prevA && prevA(); }catch(_){ } status(); };
+  const obs = new MutationObserver(() => { if(!document.body.contains(o)){ LV.onAuth = prevA; obs.disconnect(); } }); obs.observe(document.body, { childList:true });
+  const when = t => { const d = new Date(+t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); };
+  async function list(){
+    const box = $q('#ms-ls');
+    try{
+      const rs = await MA.recent();
+      if(!o.isConnected) return;
+      box.innerHTML = rs.length ? rs.map(x => { const m = x.m, it = {}; try{ const c = (m.items && m.items.cubes) || {}; Object.assign(it, { gold:+(m.items && m.items.gold) || 0, sus:+c.sus || 0, red:+c.red || 0, black:+c.black || 0, t1:+(m.items && m.items.t1) || 0, t2:+(m.items && m.items.t2) || 0 }); }catch(_){ }
+        return '<div style="border:1px solid #3a4a7a;border-radius:8px;padding:6px;margin:5px 0"><b>' + esc(m.title) + '</b> <small>· ' + (m.to === 'all' ? '모든 아이' : '💌 ' + esc(m.to)) + '</small><br><small>🎁 ' + esc(J.mail ? J.mail.text(it) : '') + '<br>' + (m.createdAt ? when(m.createdAt) + ' 보냄' : '') + (m.expireAt ? ' · ' + when(m.expireAt) + '까지' : ' · 기한 없음') + ' · 받은 사람 <b>' + x.n + '명</b></small>' +
+          '<div class="mn"><button type="button" data-d="' + esc(x.id) + '">🗑 회수</button></div></div>'; }).join('') : '보낸 우편이 없어요';
+    }catch(e){ box.textContent = '⚠ ' + LV.errText(e); }
+  }
+  status(); LV.init().then(status).catch(e => er('⚠ ' + LV.errText(e))); list();
+  $q('#ms-to').onchange = () => { $q('#ms-nm').style.display = $q('#ms-to').value === 'one' ? '' : 'none'; };
+  const read = () => { const rw = {}; o.querySelectorAll('[data-r]').forEach(i => { rw[i.dataset.r] = i.value.trim().replace(/,/g, ''); }); return { to:($q('#ms-to').value === 'one' ? $q('#ms-nm').value.trim() : 'all'), title:$q('#ms-ti').value, body:$q('#ms-bo').value, rw, days:+$q('#ms-du').value }; };
+  o.addEventListener('click', async e => {
+    const bp = e.target.closest('[data-p]'), bs = e.target.closest('[data-s]'), bd = e.target.closest('[data-d]');
+    try{
+      if(bp){ const p = PRE[bp.dataset.p]; $q('#ms-ti').value = p.ti; $q('#ms-bo').value = p.bo; o.querySelectorAll('[data-r]').forEach(i => { i.value = p.rw[i.dataset.r] || ''; }); er(''); return; }
+      if(bd){ if(!confirm('이 우편을 회수할까요?\n아이 폰에서 바로 사라져요.\n(이미 받은 보상은 안 돌려받아요)')) return; er(''); await MA.remove(bd.dataset.d); J.toast('🗑 회수했어요'); list(); return; }
+      if(!bs) return; const k = bs.dataset.s; er('');
+      if(k === 'login'){ await LV.login(); status(); }
+      else if(k === 'logout'){ await LV.logout(); status(); }
+      else if(k === 'go'){
+        const m = read(), bad = MA.check(m); if(bad){ er('⚠ ' + bad); return; }
+        const r = m.rw, txt = J.mail ? J.mail.text({ gold:+r.gold || 0, sus:+r.sus || 0, red:+r.red || 0, black:+r.black || 0, t1:+r.t1 || 0, t2:+r.t2 || 0 }) : '';
+        if(!confirm('정말 ' + (m.to === 'all' ? '모든 아이에게' : '「' + m.to + '」에게') + ' 보낼까요?\n' + m.title.trim() + '\n' + txt)) return;
+        if(MA.big(m) && !confirm('⚠ 큰 보상이에요 (골드 1억 이상 또는 뽑기권 100장 이상).\n정말요?')) return;
+        bs.disabled = true; try{ await MA.send(m); J.toast('📮 보냈어요'); $q('#ms-ti').value = ''; $q('#ms-bo').value = ''; o.querySelectorAll('[data-r]').forEach(i => { i.value = ''; }); list(); } finally { status(); }
+      }
+    }catch(err){ er('⚠ ' + LV.errText(err)); status(); }
+  });
+}
+
+/* ===== [rpg-v41] 📬 우편함 화면 (설정 메뉴에도 있고, 안 받은 우편이 있으면 왼쪽 위에 작은 📬 버튼이 떠요) ===== */
+let mailCur = null;
+function mailBox(){
+  const M = J.mail; if(!M){ J.toast('우편함이 아직 준비 안 됐어요'); return; }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const { o, close } = overlay('<div class="box"><h2>📬 우편함 <button type="button" data-x>✕</button></h2><div id="ml-note" class="note"></div><div id="ml-list"></div><div class="mn" style="margin-top:8px"><button type="button" data-ml="__all" id="ml-all">📥 모두 받기</button><button type="button" data-x>닫기</button></div></div>');
+  let busy = false;
+  const draw = () => {
+    const ls = M.list(), on = M.online(), off = (busy || !on) ? ' disabled' : '';
+    o.querySelector('#ml-note').textContent = on ? '받기를 누르면 골드·큐브·뽑기권이 바로 들어와요. 같은 우편은 한 번만 받아져요.' : '📡 인터넷이 필요해요. 연결되면 받을 수 있어요.';
+    o.querySelector('#ml-list').innerHTML = ls.length ? ls.map(m => '<div style="border:1px solid #3a4a7a;border-radius:8px;padding:8px;margin:6px 0;background:rgba(255,255,255,.04)"><b>' + (m.personal ? '💌 ' : '') + esc(m.title) + '</b>' +
+      (m.body ? '<div style="white-space:pre-wrap;font-size:13px;margin:4px 0">' + esc(m.body) + '</div>' : '') +
+      '<div style="font-size:13px;color:#ffe9a8;margin:4px 0">🎁 ' + esc(M.text(m.items)) + '</div>' +
+      (m.expireAt ? '<small style="opacity:.7">' + (function(){ const d = new Date(m.expireAt); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + '까지'; })() + '</small>' : '') +
+      '<div class="mn"><button type="button" data-ml="' + esc(m.id) + '"' + off + '>받기</button></div></div>').join('') : '<p class="note">받을 우편이 없어요 🙂</p>';
+    const all = o.querySelector('#ml-all'); all.disabled = busy || !on || !ls.length;
+  };
+  o.addEventListener('click', async e => {
+    const b = e.target.closest('[data-ml]'); if(!b || b.disabled || busy) return;
+    busy = true; draw();
+    let r; try{ r = b.dataset.ml === '__all' ? await M.claimAll() : await M.claim(b.dataset.ml); }catch(_){ r = { ok:false, msg:'문제가 생겼어요. 다시 눌러 주세요' }; }
+    busy = false; J.toast(r.msg); draw();
+  });
+  mailCur = { o, draw }; draw();
+}
+(function(){
+  if(!J.mail) return;
+  const fab = document.createElement('button'); fab.type = 'button'; fab.id = 'mail-fab';
+  fab.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 84px);z-index:30;width:42px;height:42px;border-radius:50%;border:2px solid #ffd45a;background:rgba(20,26,60,.9);font-size:20px;line-height:1;padding:0;display:none;box-shadow:0 1px 6px rgba(0,0,0,.5)';
+  const dot = document.createElement('i'); dot.style.cssText = 'position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:9px;background:#e02828;color:#fff;font:700 11px/17px sans-serif;font-style:normal;text-align:center;pointer-events:none';
+  fab.textContent = '📬'; fab.appendChild(dot); fab.onclick = () => mailBox(); document.body.appendChild(fab);
+  J.mail.onChange = () => { try{ const n = J.mail.count(); dot.textContent = n > 9 ? '9+' : String(n); fab.style.display = n ? '' : 'none'; if(mailCur && mailCur.o.isConnected) mailCur.draw(); }catch(_){ } };
 })();
 
 /* ===== 시작 ===== */

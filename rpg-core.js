@@ -177,10 +177,187 @@ J.live = (function(){
     await connect(); await S.db.ref('jd_live/config').set(out);
   };
   api.clear = async function(){ needOp(); await connect(); await S.db.ref('jd_live/config').remove(); };
+  api.db = () => S.db;   /* [rpg-v41] 우편함이 같은 연결을 쓰도록 */
   api.errText = function(e){ const c = e && e.code, m = (e && e.message) || ''; if(c === 'PERMISSION_DENIED' || /permission_denied/i.test(m)) return '운영자 계정이 아니라서 거부됐어요'; if(c === 'auth/unauthorized-domain') return '이 주소가 Firebase 로그인 허용 목록에 없어요 (콘솔 → Authentication → 설정 → 승인된 도메인)'; if(c === 'auth/network-request-failed') return '인터넷이 불안정해요'; return m || '실패했어요'; };
   return api;
 })();
 { const _ca = J.cfgApply; J.cfgApply = function(o){ _ca(o); try{ J.live.rebase(o); }catch(_){ } }; }   /* 에디터·파일로 값을 넣어도 실시간 값이 먼저예요 */
+
+/* ===== [rpg-v41] 📬 우편함 — 운영자가 jd_mail/box 에 올린 우편을 아이가 받아요 (골드·큐브·뽑기권) =====
+   · 받기 순서: ① jd_mail/claimed/{아이키}/{우편id} 에 먼저 기록(이미 있으면 서버가 거부) → ② 성공했을 때만 지급 → 같은 우편은 한 번만
+   · 인터넷이 없으면 받을 수 없어요(오프라인 지급 금지) · Firebase가 안 불러와져도 게임은 그대로 돼요 */
+J.mail = (function(){
+  const PEND = 'rpg_mail_pend', DEV = 'rpg_mail_dev';
+  const S = { box:{}, boxOk:false, cl:{}, sig:'', refs:[], boxSub:false, conn:false, seen:null, busy:{}, started:false, tick:0 };
+  const api = { onChange:null };
+  const clean = n => String(n == null ? '' : n).replace(/[.$#\[\]\/]/g, '_');
+  const fire = () => { try{ api.onChange && api.onChange(); }catch(_){ } };
+  const cnt = v => { v = +v; return (isFinite(v) && v > 0) ? Math.floor(v) : 0; };
+  function nameKey(){   /* 끝말잇기 랭킹과 같은 이름 → 키 */
+    let n = null;
+    try{ n = localStorage.getItem('online_last_name'); if(n){ try{ const j = JSON.parse(n); if(typeof j === 'string') n = j; }catch(_){ } } }catch(_){ }
+    if(!n){ try{ const r = localStorage.getItem('jd_playerNames'); if(r){ let j = null; try{ j = JSON.parse(r); }catch(_){ j = r; } if(Array.isArray(j)){ const f = j[0]; n = (f && typeof f === 'object') ? (f.name || f.n) : f; } else if(typeof j === 'string') n = j; } }catch(_){ } }
+    n = (n == null ? '' : String(n)).trim(); return n ? clean(n) : '';
+  }
+  function devKey(){ let d = ''; try{ d = localStorage.getItem(DEV) || ''; if(!d){ d = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(DEV, d); } }catch(_){ d = 'dev_tmp'; } return d; }
+  const myKeys = () => { const a = [], n = nameKey(); if(n) a.push(n); a.push(devKey()); return a; };
+  const claimKey = () => nameKey() || devKey();
+  const isClaimed = id => { for(const k of Object.keys(S.cl)) if(S.cl[k] && S.cl[k][id] != null) return true; return false; };
+  const loaded = () => { if(!S.boxOk) return false; const ks = myKeys(); return ks.every(k => S.cl[k]); };
+  function items(it){ it = (it && typeof it === 'object') ? it : {}; const c = (it.cubes && typeof it.cubes === 'object') ? it.cubes : {}; return { gold:Math.min(cnt(it.gold), 1e10), sus:Math.min(cnt(c.sus), 1e6), red:Math.min(cnt(c.red), 1e6), black:Math.min(cnt(c.black), 1e6), t1:Math.min(cnt(it.t1), 1e6), t2:Math.min(cnt(it.t2), 1e6) }; }
+  const empty = it => !(it.gold || it.sus || it.red || it.black || it.t1 || it.t2);
+  api.text = function(it){ const p = [], f = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); if(it.gold) p.push('💰 골드 ' + f(it.gold)); if(it.sus) p.push('🔷 큐브 ' + f(it.sus)); if(it.red) p.push('🟥 큐브 ' + f(it.red)); if(it.black) p.push('⬛ 큐브 ' + f(it.black)); if(it.t1) p.push('🎫 뽑기권 ' + f(it.t1)); if(it.t2) p.push('🎟 뽑기권 ' + f(it.t2)); return p.join(' · ') || '(보상 없음)'; };
+  function mine(m){ const t = m.to; if(t == null || t === 'all') return true; const n = nameKey(); return !!n && clean(t) === n; }
+  api.list = function(){
+    if(!loaded()) return [];
+    const now = J.live.now(), out = [];
+    Object.keys(S.box || {}).forEach(id => {
+      const m = S.box[id]; if(!m || typeof m !== 'object' || !mine(m)) return;
+      if(+m.expireAt > 0 && +m.expireAt <= now) return;
+      if(isClaimed(id)) return;
+      out.push({ id, title:String(m.title || '우편').slice(0, 40), body:String(m.body || '').slice(0, 500), createdAt:+m.createdAt || 0, expireAt:+m.expireAt || 0, personal:(m.to != null && m.to !== 'all'), items:items(m.items) });
+    });
+    out.sort((a, b) => b.createdAt - a.createdAt); return out;
+  };
+  api.online = () => !!(S.conn && navigator.onLine !== false);
+  api.count = () => api.list().length;
+  async function grant(it){   /* 실제 지급 (기존 지급 함수 그대로) */
+    const L = J.L; if(!L) throw new Error('가방 없음');
+    if(it.gold) L.addGold(it.gold);
+    if(it.sus || it.red || it.black) L.addCubes({ sus:it.sus, red:it.red, black:it.black });
+    if((it.t1 || it.t2) && L.dlx){ L.dlx.t1 = (L.dlx.t1 | 0) + it.t1; L.dlx.t2 = (L.dlx.t2 | 0) + it.t2; await J.kset('dlx', L.dlx); }
+  }
+  const pendGet = () => { const p = J.LS.get(PEND, {}); return (p && typeof p === 'object') ? p : {}; };
+  const pendSet = p => J.LS.set(PEND, p);
+  const pk = (k, id) => k + '|' + id;
+  function pendDel(k, id){ const p = pendGet(); delete p[pk(k, id)]; pendSet(p); }
+  async function paid(k, id, it){   /* 지급하고 '진행 중' 표시를 지워요 · 지급이 실패해도 받은 기록은 이미 있으니 운영자에게 알리도록 해요 */
+    try{ await grant(it); }
+    catch(e){ try{ console.error('[우편 지급 실패] 우편 id =', id, it, e); }catch(_){ } J.toast('⚠ 문제가 생겼어요. 운영자에게 알려 주세요 (우편 ' + id + ')'); }
+    pendDel(k, id);
+  }
+  api.claim = async function(id){
+    if(S.busy[id]) return { ok:false, msg:'처리 중이에요' };
+    const L = J.L;
+    if(!L || !L.addGold) return { ok:false, msg:'끝말잇기 가방을 못 불러왔어요. 끝말잇기를 한 번 연 다음 다시 눌러 주세요' };
+    if(!api.online()) return { ok:false, msg:'📡 인터넷이 필요해요' };
+    const m = api.list().find(x => x.id === id);
+    if(!m) return { ok:false, msg:'이미 받았거나 없어진 우편이에요' };
+    if((m.items.t1 || m.items.t2) && !L.dlx) return { ok:false, msg:'뽑기권 가방을 못 불러왔어요. 끝말잇기를 한 번 연 다음 다시 눌러 주세요' };
+    const db = J.live.db(); if(!db) return { ok:false, msg:'📡 인터넷이 필요해요' };
+    S.busy[id] = 1;
+    const k = claimKey(), t = Math.floor(J.live.now());
+    const p = pendGet(); p[pk(k, id)] = { k, id, t, it:m.items }; pendSet(p);   /* 지급 전에 적어 둬요 → 도중에 앱이 꺼져도 다음에 이어서 지급 */
+    let w; try{ w = db.ref('jd_mail/claimed/' + k + '/' + id).set(t); }catch(e){ w = Promise.reject(e); }
+    const r = await Promise.race([w.then(() => 'ok', e => ({ e })), new Promise(res => setTimeout(() => res('slow'), 12000))]);
+    if(r === 'slow'){   /* 연결이 느려요 — 나중에 기록이 들어가면 그때 지급 */
+      w.then(async () => { await paid(k, id, m.items); delete S.busy[id]; J.toast('📬 우편을 받았어요 ' + api.text(m.items)); refresh(true); }, () => { pendDel(k, id); delete S.busy[id]; refresh(true); });
+      return { ok:false, msg:'연결이 느려요. 연결되면 자동으로 받아져요' };
+    }
+    if(r !== 'ok'){
+      pendDel(k, id); delete S.busy[id];
+      const e = r.e, c = e && e.code, mm = (e && e.message) || '';
+      if(c === 'PERMISSION_DENIED' || /permission_denied/i.test(mm)) return { ok:false, msg:'이미 받은 우편이에요' };
+      return { ok:false, msg:'받지 못했어요. 잠시 뒤 다시 눌러 주세요' };
+    }
+    await paid(k, id, m.items); delete S.busy[id]; refresh(true);
+    return { ok:true, msg:'📬 받았어요! ' + api.text(m.items) };
+  };
+  api.claimAll = async function(){   /* 하나씩 순서대로 (동시에 하지 않아요) */
+    const ls = api.list(); if(!ls.length) return { ok:false, msg:'받을 우편이 없어요' };
+    let n = 0, last = '';
+    for(const m of ls){ const r = await api.claim(m.id); if(r.ok) n++; else if(!/이미 받/.test(r.msg)){ last = r.msg; break; } }
+    return n ? { ok:true, msg:'📬 우편 ' + n + '개를 받았어요' + (last ? ' · ' + last : '') } : { ok:false, msg:last || '받을 우편이 없어요' };
+  };
+  function recover(){   /* 앱이 꺼지기 전에 받은 기록은 남았는데 지급을 못 한 우편을 이어서 지급 (기록 숫자가 내가 쓴 것과 같을 때만) */
+    if(!J.L) return;
+    const p = pendGet(), ks = Object.keys(p); if(!ks.length) return;
+    ks.forEach(key => {
+      const e = p[key]; if(!e || S.busy[e.id] || !S.cl[e.k]) return;
+      const v = S.cl[e.k][e.id];
+      if(v === e.t){ S.busy[e.id] = 1; paid(e.k, e.id, items(e.it)).then(() => { delete S.busy[e.id]; J.toast('📬 우편을 지급했어요 ' + api.text(items(e.it))); refresh(true); }); }
+      else if(Date.now() - (+e.t || 0) > 864e5 || v != null) pendDel(e.k, e.id);   /* 남이 먼저 받았거나 하루가 지난 기록은 정리 */
+    });
+  }
+  function refresh(quiet){
+    try{
+      const ls = api.list(), ok = loaded();
+      if(ok){
+        const ids = {}; ls.forEach(m => { ids[m.id] = 1; });
+        if(S.seen === null){ S.seen = ids; }   /* 처음 접속 때 이미 있던 우편은 빨간 점만, 알림은 없어요 */
+        else{ let nw = 0; ls.forEach(m => { if(!S.seen[m.id]){ nw++; S.seen[m.id] = 1; } }); if(nw && !quiet) J.toast('📬 새 우편이 왔어요'); }
+        recover();
+      }
+    }catch(_){ }
+    fire();
+  }
+  function subClaims(db){
+    const ks = myKeys(), sig = ks.join('|'); if(sig === S.sig) return; S.sig = sig;
+    S.refs.forEach(r => { try{ r.ref.off('value', r.fn); }catch(_){ } }); S.refs = []; S.cl = {};
+    ks.forEach(k => { const ref = db.ref('jd_mail/claimed/' + k), fn = s => { S.cl[k] = (s && s.val()) || {}; refresh(false); }; ref.on('value', fn, () => { }); S.refs.push({ ref, fn }); });
+  }
+  function sub(){
+    const db = J.live && J.live.db && J.live.db(); if(!db) return false;
+    if(!S.boxSub){ S.boxSub = true;
+      db.ref('.info/connected').on('value', s => { S.conn = !!(s && s.val()); fire(); });
+      db.ref('jd_mail/box').on('value', s => { S.box = (s && s.val()) || {}; S.boxOk = true; refresh(false); }, () => { }); }
+    subClaims(db); return true;
+  }
+  api.start = function(){
+    if(S.started) return; S.started = true;
+    let n = 0; const wait = () => { try{ if(sub()) return; }catch(_){ } if(++n < 60) setTimeout(wait, 1500); };   /* 실시간 배율이 Firebase를 연결하면 이어서 붙어요 */
+    wait();
+    setInterval(() => { try{ if(!sub()) return; subClaims(J.live.db()); refresh(true); }catch(_){ } }, 30000);   /* 30초마다: 이름이 생겼는지·만료됐는지 확인 */
+  };
+  return api;
+})();
+
+/* ===== [rpg-v42] 📮 우편 보내기 (운영자) — 보내기·회수·받은 사람 수. 받는 쪽(J.mail)은 건드리지 않아요 ===== */
+J.mailAdmin = (function(){
+  const api = {}, LIMS = { gold:1e10, cube:1e6, tk:1e6 }, DAY = 864e5;
+  const cn = v => { v = +v; return (isFinite(v) && v > 0) ? Math.floor(v) : 0; };
+  api.limits = LIMS;
+  /* 입력 검사 — 문제가 있으면 쉬운 말 글자, 괜찮으면 null */
+  api.check = function(m){
+    const t = String(m.title || '').trim(); if(!t) return '제목을 적어 주세요';
+    if(t.length > 40) return '제목은 40글자까지예요';
+    if(String(m.body || '').length > 500) return '내용은 500글자까지예요';
+    if(m.to !== 'all' && !String(m.to || '').trim()) return '받을 아이 이름을 적어 주세요';
+    const r = m.rw || {}, ks = ['gold', 'sus', 'red', 'black', 't1', 't2'];
+    for(const k of ks){ const v = +r[k]; if(r[k] !== '' && r[k] != null && (!isFinite(v) || v < 0 || v !== Math.floor(v))) return '보상은 0 이상의 정수(소수점 없는 수)만 넣어요'; }
+    const g = cn(r.gold), c = ['sus', 'red', 'black'].map(k => cn(r[k])), t12 = [cn(r.t1), cn(r.t2)];
+    if(g > LIMS.gold) return '골드는 100억까지예요';
+    if(c.some(v => v > LIMS.cube)) return '큐브는 한 종류당 100만 개까지예요';
+    if(t12.some(v => v > LIMS.tk)) return '뽑기권은 한 종류당 100만 장까지예요';
+    if(!(g || c[0] || c[1] || c[2] || t12[0] || t12[1])) return '보상을 하나 이상 넣어 주세요';
+    return null;
+  };
+  /* 1억 골드 이상 · 뽑기권 100장 이상이면 한 번 더 물어봐요 */
+  api.big = m => { const r = m.rw || {}; return cn(r.gold) >= 1e8 || cn(r.t1) >= 100 || cn(r.t2) >= 100; };
+  function needOp(){ const u = J.live.user(); if(!u) throw new Error('먼저 구글로 로그인해 주세요'); if(!u.ok) throw new Error('운영자 계정이 아니에요 (' + u.email + ')'); return u; }
+  api.send = async function(m){
+    needOp(); const bad = api.check(m); if(bad) throw new Error(bad);
+    await J.live.init(); const db = J.live.db(); if(!db) throw new Error('인터넷이 필요해요');
+    const r = m.rw || {}, it = {}, now = Math.floor(J.live.now());
+    if(cn(r.gold)) it.gold = cn(r.gold);
+    const cu = {}; ['sus', 'red', 'black'].forEach(k => { if(cn(r[k])) cu[k] = cn(r[k]); }); if(Object.keys(cu).length) it.cubes = cu;
+    if(cn(r.t1)) it.t1 = cn(r.t1); if(cn(r.t2)) it.t2 = cn(r.t2);
+    const days = +m.days || 0;
+    const ref = db.ref('jd_mail/box').push();
+    await ref.set({ to:(m.to === 'all' ? 'all' : String(m.to).trim()), title:String(m.title).trim().slice(0, 40), body:String(m.body || '').slice(0, 500), createdAt:now, expireAt:(days > 0 ? now + days * DAY : 0), items:it });
+    return ref.key;
+  };
+  api.remove = async function(id){ needOp(); await J.live.init(); const db = J.live.db(); if(!db) throw new Error('인터넷이 필요해요'); await db.ref('jd_mail/box/' + id).remove(); };
+  /* 보낸 우편 최근 20개 + 받은 사람 수 (한 번만 읽어요 — 실시간 구독 안 함) */
+  api.recent = async function(){
+    await J.live.init(); const db = J.live.db(); if(!db) throw new Error('인터넷이 필요해요');
+    const [bs, cs] = await Promise.all([db.ref('jd_mail/box').once('value'), db.ref('jd_mail/claimed').once('value')]);
+    const box = bs.val() || {}, cl = cs.val() || {}, cnt = {};
+    Object.keys(cl).forEach(k => { const o = cl[k]; if(o && typeof o === 'object') Object.keys(o).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); });
+    return Object.keys(box).map(id => ({ id, m:box[id], n:cnt[id] || 0 })).filter(x => x.m && typeof x.m === 'object').sort((a, b) => (+b.m.createdAt || 0) - (+a.m.createdAt || 0)).slice(0, 20);
+  };
+  return api;
+})();
 
 /* ===== 작은 도구 ===== */
 J.$ = id => document.getElementById(id);
@@ -297,6 +474,7 @@ J.boot = async function(){
   /* [rpg-v38] 밸런스 조정: 예전에 이 폰에 저장된 숫자가 있어도 보상 관련 값은 한 번만 새 기본값으로 맞춰요 (그 뒤 에디터에서 바꾼 값은 그대로) */
   try{ if(!J.LS.get('rpg_bal_v38', 0)){ ['cubeMul', 'quota', 'bossHp', 'hidP'].forEach(k => { J.CFG[k] = J.CFG0[k]; }); const sv = J.LS.get('rpg_cfg_local', null); if(sv && typeof sv === 'object'){ ['cubeMul', 'quota', 'bossHp', 'hidP'].forEach(k => { sv[k] = J.CFG0[k]; }); J.LS.set('rpg_cfg_local', sv); } J.LS.set('rpg_bal_v38', 1); } }catch(_){ }
   try{ J.live.start(); }catch(_){ }   /* [rpg-v39] 실시간 배율 (기다리지 않고 뒤에서 연결) */
+  try{ J.mail.start(); }catch(_){ }   /* [rpg-v41] 우편함 (뒤에서 연결) */
   const sh = J.share(), cands = [];
   try{ if(sh.page){ const u = new URL(sh.page, location.href); if(u.origin === location.origin) cands.push(u.pathname); } }catch(_){ }
   cands.push('/index3/', '../index3/', '../', 'index3.html');
