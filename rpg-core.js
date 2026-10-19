@@ -188,7 +188,7 @@ J.live = (function(){
    · 인터넷이 없으면 받을 수 없어요(오프라인 지급 금지) · Firebase가 안 불러와져도 게임은 그대로 돼요 */
 J.mail = (function(){
   const PEND = 'rpg_mail_pend', DEV = 'rpg_mail_dev';
-  const S = { box:{}, boxOk:false, cl:{}, sig:'', refs:[], boxSub:false, conn:false, seen:null, busy:{}, started:false, tick:0 };
+  const S = { box:{}, boxOk:false, cl:{}, leaf:{}, sig:'', refs:[], boxSub:false, conn:false, seen:null, busy:{}, started:false, tick:0 };
   const api = { onChange:null };
   const clean = n => String(n == null ? '' : n).replace(/[.$#\[\]\/]/g, '_');
   const fire = () => { try{ api.onChange && api.onChange(); }catch(_){ } };
@@ -203,7 +203,9 @@ J.mail = (function(){
   const myKeys = () => { const a = [], n = nameKey(); if(n) a.push(n); a.push(devKey()); return a; };
   const claimKey = () => nameKey() || devKey();
   const isClaimed = id => { for(const k of Object.keys(S.cl)) if(S.cl[k] && S.cl[k][id] != null) return true; return false; };
-  const loaded = () => { if(!S.boxOk) return false; const ks = myKeys(); return ks.every(k => S.cl[k]); };
+  /* [rpg-v44] 받은 기록은 '우편 하나씩' 읽어요 (jd_mail/claimed/{키}/{id}). 규칙이 아이에게 허락한 건 이 길뿐이라, 예전처럼 {키} 통째로 읽으면 막혀서 우편이 안 보였어요 */
+  const live = m => !!m && typeof m === 'object' && !(+m.expireAt > 0 && +m.expireAt <= J.live.now());
+  const loaded = () => { if(!S.boxOk) return false; const ks = myKeys(); for(const k of ks){ if(!S.cl[k]) return false; for(const id of Object.keys(S.box || {})){ if(!live(S.box[id])) continue; const l = S.leaf[k + '|' + id]; if(!l || !l.ready) return false; } } return true; };
   function items(it){ it = (it && typeof it === 'object') ? it : {}; const c = (it.cubes && typeof it.cubes === 'object') ? it.cubes : {}; return { gold:Math.min(cnt(it.gold), 1e10), sus:Math.min(cnt(c.sus), 1e6), red:Math.min(cnt(c.red), 1e6), black:Math.min(cnt(c.black), 1e6), t1:Math.min(cnt(it.t1), 1e6), t2:Math.min(cnt(it.t2), 1e6) }; }
   const empty = it => !(it.gold || it.sus || it.red || it.black || it.t1 || it.t2);
   api.text = function(it){ const p = [], f = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); if(it.gold) p.push('💰 골드 ' + f(it.gold)); if(it.sus) p.push('🔷 큐브 ' + f(it.sus)); if(it.red) p.push('🟥 큐브 ' + f(it.red)); if(it.black) p.push('⬛ 큐브 ' + f(it.black)); if(it.t1) p.push('🎫 뽑기권 ' + f(it.t1)); if(it.t2) p.push('🎟 뽑기권 ' + f(it.t2)); return p.join(' · ') || '(보상 없음)'; };
@@ -291,16 +293,27 @@ J.mail = (function(){
     }catch(_){ }
     fire();
   }
+  function offLeaf(key){ const l = S.leaf[key]; if(l){ try{ l.ref.off('value', l.fn); }catch(_){ } delete S.leaf[key]; } }
   function subClaims(db){
-    const ks = myKeys(), sig = ks.join('|'); if(sig === S.sig) return; S.sig = sig;
-    S.refs.forEach(r => { try{ r.ref.off('value', r.fn); }catch(_){ } }); S.refs = []; S.cl = {};
-    ks.forEach(k => { const ref = db.ref('jd_mail/claimed/' + k), fn = s => { S.cl[k] = (s && s.val()) || {}; refresh(false); }; ref.on('value', fn, () => { }); S.refs.push({ ref, fn }); });
+    const ks = myKeys(), sig = ks.join('|');
+    if(sig !== S.sig){ S.sig = sig; Object.keys(S.leaf).forEach(offLeaf); S.cl = {}; }
+    ks.forEach(k => { if(!S.cl[k]) S.cl[k] = {}; });
+    const want = {};
+    ks.forEach(k => Object.keys(S.box || {}).forEach(id => { if(live(S.box[id])) want[k + '|' + id] = [k, id]; }));
+    Object.keys(S.leaf).forEach(key => { if(!want[key]){ const k = S.leaf[key].k, id = S.leaf[key].id; offLeaf(key); if(S.cl[k]) delete S.cl[k][id]; } });
+    Object.keys(want).forEach(key => {
+      if(S.leaf[key]) return;
+      const k = want[key][0], id = want[key][1], ref = db.ref('jd_mail/claimed/' + k + '/' + id), l = { ref, k, id, ready:false };
+      l.fn = s2 => { const v = s2 && s2.val(); if(!S.cl[k]) S.cl[k] = {}; if(v == null) delete S.cl[k][id]; else S.cl[k][id] = v; l.ready = true; refresh(false); };
+      S.leaf[key] = l;
+      try{ ref.on('value', l.fn, () => { }); }catch(_){ }
+    });
   }
   function sub(){
     const db = J.live && J.live.db && J.live.db(); if(!db) return false;
     if(!S.boxSub){ S.boxSub = true;
       db.ref('.info/connected').on('value', s => { S.conn = !!(s && s.val()); fire(); });
-      db.ref('jd_mail/box').on('value', s => { S.box = (s && s.val()) || {}; S.boxOk = true; refresh(false); }, () => { }); }
+      db.ref('jd_mail/box').on('value', s => { S.box = (s && s.val()) || {}; S.boxOk = true; try{ subClaims(db); }catch(_){ } refresh(false); }, () => { }); }
     subClaims(db); return true;
   }
   api.start = function(){
