@@ -351,10 +351,11 @@ J.mailAdmin = (function(){
   /* 보낸 우편 최근 20개 + 받은 사람 수 (한 번만 읽어요 — 실시간 구독 안 함) */
   api.recent = async function(){
     await J.live.init(); const db = J.live.db(); if(!db) throw new Error('인터넷이 필요해요');
-    const [bs, cs] = await Promise.all([db.ref('jd_mail/box').once('value'), db.ref('jd_mail/claimed').once('value')]);
-    const box = bs.val() || {}, cl = cs.val() || {}, cnt = {};
+    const bs = await db.ref('jd_mail/box').once('value');
+    let cl = null, okCl = true; try{ cl = (await db.ref('jd_mail/claimed').once('value')).val() || {}; }catch(_){ cl = null; okCl = false; }   /* 규칙이 전체 읽기를 막아도 목록은 보이게 (받은 수만 ?) */
+    const box = bs.val() || {}, cnt = {}; if(!cl) cl = {};
     Object.keys(cl).forEach(k => { const o = cl[k]; if(o && typeof o === 'object') Object.keys(o).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); });
-    return Object.keys(box).map(id => ({ id, m:box[id], n:cnt[id] || 0 })).filter(x => x.m && typeof x.m === 'object').sort((a, b) => (+b.m.createdAt || 0) - (+a.m.createdAt || 0)).slice(0, 20);
+    return Object.keys(box).map(id => ({ id, m:box[id], n:(okCl ? (cnt[id] || 0) : null) })).filter(x => x.m && typeof x.m === 'object').sort((a, b) => (+b.m.createdAt || 0) - (+a.m.createdAt || 0)).slice(0, 20);
   };
   return api;
 })();

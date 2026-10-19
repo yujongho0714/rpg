@@ -335,7 +335,7 @@ function mailSend(){
       const rs = await MA.recent();
       if(!o.isConnected) return;
       box.innerHTML = rs.length ? rs.map(x => { const m = x.m, it = {}; try{ const c = (m.items && m.items.cubes) || {}; Object.assign(it, { gold:+(m.items && m.items.gold) || 0, sus:+c.sus || 0, red:+c.red || 0, black:+c.black || 0, t1:+(m.items && m.items.t1) || 0, t2:+(m.items && m.items.t2) || 0 }); }catch(_){ }
-        return '<div style="border:1px solid #3a4a7a;border-radius:8px;padding:6px;margin:5px 0"><b>' + esc(m.title) + '</b> <small>· ' + (m.to === 'all' ? '모든 아이' : '💌 ' + esc(m.to)) + '</small><br><small>🎁 ' + esc(J.mail ? J.mail.text(it) : '') + '<br>' + (m.createdAt ? when(m.createdAt) + ' 보냄' : '') + (m.expireAt ? ' · ' + when(m.expireAt) + '까지' : ' · 기한 없음') + ' · 받은 사람 <b>' + x.n + '명</b></small>' +
+        return '<div style="border:1px solid #3a4a7a;border-radius:8px;padding:6px;margin:5px 0"><b>' + esc(m.title) + '</b> <small>· ' + (m.to === 'all' ? '모든 아이' : '💌 ' + esc(m.to)) + '</small><br><small>🎁 ' + esc(J.mail ? J.mail.text(it) : '') + '<br>' + (m.createdAt ? when(m.createdAt) + ' 보냄' : '') + (m.expireAt ? ' · ' + when(m.expireAt) + '까지' : ' · 기한 없음') + ' · 받은 사람 <b>' + (x.n == null ? '? (규칙 추가 필요)' : x.n + '명') + '</b></small>' +
           '<div class="mn"><button type="button" data-d="' + esc(x.id) + '">🗑 회수</button></div></div>'; }).join('') : '보낸 우편이 없어요';
     }catch(e){ box.textContent = '⚠ ' + LV.errText(e); }
   }
