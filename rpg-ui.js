@@ -386,13 +386,39 @@ function mailBox(){
   });
   mailCur = { o, draw }; draw();
 }
+/* [rpg-v45] 우편이 오면 가운데에 공지 창이 떠요 + 📬 버튼을 크게·깜빡이게 */
 (function(){
   if(!J.mail) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  if(!document.getElementById('mail-fab-css')){ const st = document.createElement('style'); st.id = 'mail-fab-css'; st.textContent = '@keyframes mailpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,212,90,.8)}50%{transform:scale(1.12);box-shadow:0 0 0 10px rgba(255,212,90,0)}}'; document.head.appendChild(st); }
   const fab = document.createElement('button'); fab.type = 'button'; fab.id = 'mail-fab';
-  fab.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 84px);z-index:30;width:42px;height:42px;border-radius:50%;border:2px solid #ffd45a;background:rgba(20,26,60,.9);font-size:20px;line-height:1;padding:0;display:none;box-shadow:0 1px 6px rgba(0,0,0,.5)';
-  const dot = document.createElement('i'); dot.style.cssText = 'position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:9px;background:#e02828;color:#fff;font:700 11px/17px sans-serif;font-style:normal;text-align:center;pointer-events:none';
+  fab.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 84px);z-index:30;width:58px;height:58px;border-radius:50%;border:3px solid #ffd45a;background:rgba(20,26,60,.95);font-size:30px;line-height:1;padding:0;display:none;animation:mailpulse 1.6s infinite';
+  const dot = document.createElement('i'); dot.style.cssText = 'position:absolute;top:-6px;right:-6px;min-width:24px;height:24px;border-radius:12px;background:#e02828;color:#fff;font:700 14px/24px sans-serif;font-style:normal;text-align:center;pointer-events:none;border:2px solid #fff;box-sizing:border-box';
   fab.textContent = '📬'; fab.appendChild(dot); fab.onclick = () => mailBox(); document.body.appendChild(fab);
-  J.mail.onChange = () => { try{ const n = J.mail.count(); dot.textContent = n > 9 ? '9+' : String(n); fab.style.display = n ? '' : 'none'; if(mailCur && mailCur.o.isConnected) mailCur.draw(); }catch(_){ } };
+  const told = {}; let popO = null, tm = 0;
+  function notice(){
+    try{
+      if(popO && popO.isConnected) return;
+      if(mailCur && mailCur.o.isConnected) return;
+      const ls = J.mail.list().filter(m => !told[m.id]); if(!ls.length) return;
+      ls.forEach(m => { told[m.id] = 1; });
+      const top = ls.slice(0, 3);
+      const html = '<div class="box" style="text-align:center"><h2 style="justify-content:center">📬 새 우편이 왔어요!</h2>' +
+        '<div style="font-size:15px;margin:6px 0">안 받은 우편 <b style="color:#ffd45a">' + J.mail.count() + '통</b></div>' +
+        top.map(m => '<div style="border:1px solid #3a4a7a;border-radius:8px;padding:8px;margin:6px 0;background:rgba(255,255,255,.05);text-align:left"><b>' + (m.personal ? '💌 ' : '') + esc(m.title) + '</b>' +
+          (m.body ? '<div style="white-space:pre-wrap;font-size:13px;margin:4px 0">' + esc(m.body) + '</div>' : '') +
+          '<div style="font-size:13px;color:#ffe9a8">🎁 ' + esc(J.mail.text(m.items)) + '</div></div>').join('') +
+        (ls.length > 3 ? '<small style="opacity:.7">…그리고 ' + (ls.length - 3) + '통 더</small>' : '') +
+        '<div class="mn" style="margin-top:8px"><button type="button" data-open>📬 우편함 열기</button><button type="button" data-x>나중에</button></div></div>';
+      const r = overlay(html); popO = r.o;
+      r.o.addEventListener('click', e => { if(e.target.closest('[data-open]')){ r.close(); mailBox(); } });
+    }catch(_){ }
+  }
+  J.mail.onChange = () => { try{
+    const n = J.mail.count(); dot.textContent = n > 9 ? '9+' : String(n); fab.style.display = n ? '' : 'none';
+    if(mailCur && mailCur.o.isConnected) mailCur.draw();
+    if(n){ clearTimeout(tm); tm = setTimeout(notice, 1200); }
+  }catch(_){ } };
 })();
 
 /* ===== 시작 ===== */
