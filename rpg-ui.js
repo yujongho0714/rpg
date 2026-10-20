@@ -392,9 +392,13 @@ function mailBox(){
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   if(!document.getElementById('mail-fab-css')){ const st = document.createElement('style'); st.id = 'mail-fab-css'; st.textContent = '@keyframes mailpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,212,90,.8)}50%{transform:scale(1.12);box-shadow:0 0 0 10px rgba(255,212,90,0)}}'; document.head.appendChild(st); }
   const fab = document.createElement('button'); fab.type = 'button'; fab.id = 'mail-fab';
-  fab.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 84px);z-index:30;width:58px;height:58px;border-radius:50%;border:3px solid #ffd45a;background:rgba(20,26,60,.95);font-size:30px;line-height:1;padding:0;display:none;animation:mailpulse 1.6s infinite';
+  fab.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 84px);z-index:30;width:58px;height:58px;border-radius:50%;border:3px solid #ffd45a;background:rgba(20,26,60,.95);font-size:30px;line-height:1;padding:0;animation:none;opacity:.9';
   const dot = document.createElement('i'); dot.style.cssText = 'position:absolute;top:-6px;right:-6px;min-width:24px;height:24px;border-radius:12px;background:#e02828;color:#fff;font:700 14px/24px sans-serif;font-style:normal;text-align:center;pointer-events:none;border:2px solid #fff;box-sizing:border-box';
-  fab.textContent = '📬'; fab.appendChild(dot); fab.onclick = () => mailBox(); document.body.appendChild(fab);
+  dot.style.display = 'none'; fab.textContent = '📬'; fab.appendChild(dot); fab.onclick = () => mailBox(); document.body.appendChild(fab);
+  /* [rpg-v46] 🧪 소비 바로가기 — 가방의 소비 탭(큐브·뽑기권·골드보따리)을 바로 열어요 */
+  const csb = document.createElement('button'); csb.type = 'button'; csb.id = 'cs-fab'; csb.textContent = '🧪';
+  csb.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 150px);z-index:30;width:58px;height:58px;border-radius:50%;border:3px solid #7be8e2;background:rgba(20,26,60,.95);font-size:30px;line-height:1;padding:0;opacity:.9';
+  csb.onclick = () => { if(!needLoot()) return; try{ J.L.bulk = null; J.L.view = 'cs'; J.L.sel = null; }catch(_){ } J.L.openBag(); }; document.body.appendChild(csb);
   const told = {}; let popO = null, tm = 0;
   function notice(){
     try{
@@ -415,7 +419,7 @@ function mailBox(){
     }catch(_){ }
   }
   J.mail.onChange = () => { try{
-    const n = J.mail.count(); dot.textContent = n > 9 ? '9+' : String(n); fab.style.display = n ? '' : 'none';
+    const n = J.mail.count(); dot.textContent = n > 9 ? '9+' : String(n); dot.style.display = n ? '' : 'none'; fab.style.animation = n ? 'mailpulse 1.6s infinite' : 'none'; fab.style.opacity = n ? '1' : '.9';
     if(mailCur && mailCur.o.isConnected) mailCur.draw();
     if(n){ clearTimeout(tm); tm = setTimeout(notice, 1200); }
   }catch(_){ } };
