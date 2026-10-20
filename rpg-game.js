@@ -223,9 +223,11 @@ function hurtHero(dmg, from){ if(H.inv > 0 || H.st === 'dead' || G.over || G.adm
   G.php -= dmg; H.inv = .7; H.hurtT = .25; S('hurt'); shake(.3); hitStop(.05); num(H.x, 170, H.z, dmg, 'hurt'); flashA = .22; flashC = '#ff2a2a';
   const dir = from ? (H.x >= from.x ? 1 : -1) : -H.face; H.vx += dir * 380;
   if(H.st !== 'cast' && H.st !== 'leap'){ H.st = 'hurt'; H.t = 0; }
-  if(G.php <= G.pmax * C().pot / 100 && G.pot > 0 && G.php > 0) J.usePot();
+  if(G.php <= G.pmax * C().pot / 100 && (G.pot > 0 || potStock() > 0) && G.php > 0) J.usePot();
   if(G.php <= 0) heroDie(); return true; }
-J.usePot = function(){ if(G.pot <= 0 || G.php >= G.pmax || G.over) return; G.pot--; const v = Math.round(G.pmax * .3); G.php = Math.min(G.pmax, G.php + v); label(H.x, 200, H.z, '🧪 +' + v, '#8fff9a', 26); S('heal'); for(let i = 0; i < 10; i++) PT.push({ k:'spark', x:H.x + rnd(-30, 30), y:rnd(0, 140), z:H.z, vx:0, vy:rnd(80, 180), vz:0, g:0, t:0, life:rnd(.4, .8), col:'#8fff9a', w:3 }); };
+const potStock = () => { try{ return (J.L && J.L.potN && J.L.potN()) | 0; }catch(_){ return 0; } };
+J.potStock = potStock;
+J.usePot = function(){ if((G.pot <= 0 && potStock() <= 0) || G.php >= G.pmax || G.over) return; if(G.pot > 0) G.pot--; else { try{ J.L.potTake(); }catch(_){ return; } } const v = Math.round(G.pmax * .3); G.php = Math.min(G.pmax, G.php + v); label(H.x, 200, H.z, '🧪 +' + v, '#8fff9a', 26); S('heal'); for(let i = 0; i < 10; i++) PT.push({ k:'spark', x:H.x + rnd(-30, 30), y:rnd(0, 140), z:H.z, vx:0, vy:rnd(80, 180), vz:0, g:0, t:0, life:rnd(.4, .8), col:'#8fff9a', w:3 }); };
 function heroDie(){ G.php = 0; H.st = 'dead'; H.t = 0; G.over = 1; slowT = .6; shake(.6); S('mdie2');
   G.banner = { txt:'쓰러졌어요…', sub:'STAGE ' + (G.st + 1) + ' 처음부터 다시!', t:0, col:'#ff8a8a' }; clearTimeout(J._dieT); J._dieT = setTimeout(() => J.beginStage(), 2600); }
 

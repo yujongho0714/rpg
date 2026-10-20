@@ -27,7 +27,7 @@ J.keyVec = () => { const kb = INP.kb; return [(kb.arrowright || kb.d ? 1 : 0) - 
 /* ===== 화면 위 정보 ===== */
 let uiT = 0, lastG = -1;
 J.uiTick = function(dt){ uiT += dt; if(uiT < .1) return; uiT = 0;
-  const p = Math.max(0, G.php / G.pmax * 100); $('php').style.width = p + '%'; $('phpu').style.width = p + '%'; $('phpt').textContent = Math.max(0, Math.round(G.php)) + ' / ' + fmt(G.pmax); $('pot').textContent = '🧪' + G.pot;
+  const p = Math.max(0, G.php / G.pmax * 100); $('php').style.width = p + '%'; $('phpu').style.width = p + '%'; $('phpt').textContent = Math.max(0, Math.round(G.php)) + ' / ' + fmt(G.pmax); $('pot').textContent = '🧪' + (G.pot + (J.potStock ? J.potStock() : 0));
   $('stg').textContent = 'STAGE ' + (G.st + 1) + (G.hid ? ' 🕳' : '') + (G.repeat ? ' 🔁' : '');   /* [rpg-v35] 🎯 권장 전투력 */
   try{ const L = J.L; if(L && L.recPow && !G.hid){ const rv = L.recPow(G.st, 'rt'), tg = L.recTag(rv, J.power()); $('stg').textContent += ' · 권장 ⚡' + L.recFmt(rv) + ' ' + tg[0]; $('stg').style.color = tg[1]; } else $('stg').style.color = ''; }catch(_){ } const thn = $('thn'), pwT = ' ⚡' + (J.L && J.L.pwK ? J.L.pwK(J.power()) : fmt(J.power())); thn.textContent = (G.hid ? '히든 보스' : (G.theme ? G.theme.nm : '')) + pwT;
   if(!thn._pw){ thn._pw = 1; thn.style.pointerEvents = 'auto'; thn.style.cursor = 'pointer'; thn.title = '눌러서 전투력 자세히 보기'; thn.addEventListener('click', () => J.powOpen()); }   /* [rpg-v34] 전투력 */
