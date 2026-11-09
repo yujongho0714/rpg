@@ -162,7 +162,7 @@ function openBag2(){$('#mBag').hidden=true;openBag();}
 let lastT=performance.now(),dpsT=0;
 function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(hitStop>0){hitStop-=dt;dt*=.06;}
-  if(!paused&&P.rig){playerTick(dt);
+  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else playerTick(dt);
     for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.spd0==null)m.spd0=m.spd;if(MODE==='train'&&TR.passive&&!m.dummy){m.cd=Math.max(m.cd,1);m.wind=0;m.charging=0;m.spd=0;}else m.spd=m.spd0;
       mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
     projTick(dt);pickupTick(dt);stageTick(dt);}
@@ -215,7 +215,7 @@ function tabTrain(el){el.innerHTML=`<p class="note">허수아비는 앞·왼쪽�
 
 /* ---------- 스킬 만들기 ---------- */
 let skSel='s540',skFilter={q:'',cat:'',rar:''};
-function motionOptions(sel){const k=Object.keys(KEYMOTION).map(id=>[`k:${id}`,'🎬 '+(KEYMOTION[id].name||id)]);const c=Object.keys(CLIPS).map(id=>[`c:${id}`,(CLIPS[id].src==='user'||CLIPS[id].src==='video'?'🎥 내 모션: ':'🧍 모캡: ')+(CLIPS[id].name||id)]);
+function motionOptions(sel){const k=Object.keys(KEYMOTION).map(id=>[`k:${id}`,'🎬 '+(KEYMOTION[id].name||id)]);const c=Object.keys(CLIPS).filter(id=>id[0]!=='_').map(id=>[`c:${id}`,(CLIPS[id].src==='user'||CLIPS[id].src==='video'?'🎥 내 모션: ':'🧍 모캡: ')+(CLIPS[id].name||id)]);
   return[...k,...c].map(([v,n])=>`<option value="${v}" ${v===sel?'selected':''}>${esc(n)}</option>`).join('');}
 function fxDatalist(){if($('#fxlist'))return;const d=document.createElement('datalist');d.id='fxlist';d.innerHTML=[...PFX_IDS,...KFX_LIST.map(k=>'k:'+k)].map(x=>`<option value="${x}">`).join('');document.body.appendChild(d);}
 function tabSkill(el){fxDatalist();const list=Object.values(SK).filter(s=>s.id[0]!=='_'&&(!skFilter.cat||s.cat===skFilter.cat)&&(!skFilter.rar||s.rar===skFilter.rar)&&(!skFilter.q||s.name.includes(skFilter.q))).sort((a,b)=>RAR[a.rar].i-RAR[b.rar].i);
@@ -299,49 +299,105 @@ async function videoToClip(file,name){exAbort=false;$('#mEx').hidden=false;$('#e
       if(r.poseWorldLandmarks&&r.poseLandmarks){const w=[];r.poseWorldLandmarks.forEach(p=>w.push(p.x,p.y,p.z));const nl=r.poseLandmarks;
         last={w,n:[(nl[23].x+nl[24].x)/2,(nl[23].y+nl[24].y)/2,Math.max(nl[27].y,nl[28].y,nl[31].y,nl[32].y)]};got++;}
       if(last)raw.push(last);$('#exBar').style.width=(100*(i+1)/N)+'%';$('#exTxt').textContent=`동작 분석 중… ${i+1} / ${N} 프레임`;}
-    if(exAbort)return null;if(got<N*.3)throw new Error('사람을 거의 찾지 못했어요. 몸 전체가 크게 나오는 영상으로 다시 해보세요.');
-    return buildClip(raw,fps,v.videoWidth/v.videoHeight,name);}
-  finally{$('#mEx').hidden=true;URL.revokeObjectURL(url);}}
+    if(exAbort){URL.revokeObjectURL(url);return null;}if(got<N*.3)throw new Error('사람을 거의 찾지 못했어요. 몸 전체가 크게 나오는 영상으로 다시 해보세요.');
+    const c=buildClip(raw,fps,v.videoWidth/v.videoHeight,name);c._url=url;return c;}
+  catch(e){URL.revokeObjectURL(url);throw e;}
+  finally{$('#mEx').hidden=true;}}
 function buildClip(raw,fps,aspect,name){const n=raw.length,W=5;const sm=raw.map((f,i)=>{const w=new Array(99).fill(0);let c=0;for(let j=Math.max(0,i-2);j<=Math.min(n-1,i+2);j++){raw[j].w.forEach((x,k)=>w[k]+=x);c++;}return{w:w.map(x=>Math.round(x/c*1000)/1000),n:f.n};});
   const feet=sm.map(f=>f.n[2]).sort((a,b)=>a-b);const ground=feet[Math.floor(feet.length*.9)];const hipH0=Math.max(.05,ground-sm[0].n[1]);const s=.825/hipH0;const x0=sm[0].n[0];
   const frames=sm.map(f=>({w:f.w,r:[Math.round((f.n[0]-x0)*aspect*s*1000)/1000,Math.round(Math.max(.3,(ground-f.n[1])*s)*1000)/1000,0]}));
   const sp=idx=>frames.map((f,i)=>i?Math.hypot(f.w[idx*3]-frames[i-1].w[idx*3],f.w[idx*3+1]-frames[i-1].w[idx*3+1],f.w[idx*3+2]-frames[i-1].w[idx*3+2]):0);
   const peak={};[['anL',27],['anR',28],['wrL',15],['wrR',16],['toL',31],['toR',32]].forEach(([k,i])=>{const a=sp(i);let b=0;a.forEach((x,j)=>{if(x>a[b])b=j;});peak[k]=Math.round(b/fps*1000)/1000;});
   return{name,fps,frames,peak,dur:Math.round(frames.length/fps*100)/100,src:'video'};}
-let moSel=null;
-function playMotion(mot){ensureTrain().then(()=>{P.act=null;SK._mv={id:'_mv',name:'모션 보기',rar:'N',cat:'kick',mot,hits:[],cd:0};useSkill('_mv');});}
-function tabMotion(el){const user=Object.keys(DB.motions);
-  el.innerHTML=`<div class="card"><b>🎥 영상으로 모션 만들기</b><p class="note">사람 한 명이 몸 전체가 나오게 찍힌 짧은 영상(20초 이하)을 올리면, 동작을 읽어서 캐릭터 모션으로 만들어요. 겨루기·품새·시범 영상, 다른 게임 영상도 돼요.</p>
-    <div class="row"><input id="mvName" placeholder="모션 이름 (예: 내 540)" style="flex:1"><button class="pri" id="mvUp">영상 고르기</button></div><p class="note" id="mvMsg"></p></div>
-  <h4>내가 만든 모션 ${user.length}개</h4><div class="list">${user.map(id=>`<div class="li ${id===moSel?'on':''}" data-m="${id}">🎥 ${esc(DB.motions[id].name)}<span class="r">${DB.motions[id].dur}초</span></div>`).join('')||'<p class="note">아직 없어요.</p>'}</div>
-  ${moSel&&DB.motions[moSel]?motionEdit(moSel):''}
-  <h4>모캡 모션 (사람이 실제로 한 동작)</h4><div class="list">${Object.keys(CLIPS).filter(id=>!DB.motions[id]).map(id=>`<div class="li"><span>🧍 ${esc(CLIPS[id].name||id)}</span><span class="r">${CLIPS[id].dur.toFixed(1)}초 <button data-play="c:${id}">▶</button> <button data-mk="c:${id}">스킬로</button></span></div>`).join('')}</div>
-  <h4>키프레임 모션 (태권도·트릭킹·무기)</h4><div class="list">${Object.keys(KEYMOTION).map(id=>`<div class="li"><span>🎬 ${esc(KEYMOTION[id].name||id)}</span><span class="r"><button data-play="k:${id}">▶</button> <button data-mk="k:${id}">스킬로</button></span></div>`).join('')}</div>`;
-  el.querySelector('#mvUp').onclick=()=>$('#fVideo').click();
-  el.querySelectorAll('[data-m]').forEach(li=>li.onclick=e=>{if(e.target.closest('button,input'))return;moSel=li.dataset.m;renderTab();});
-  el.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>playMotion(b.dataset.play));
-  el.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>makeSkillFromMotion(b.dataset.mk));
-  const me=el.querySelector('#moEdit');if(me)wireMotionEdit(me,moSel);}
-function makeSkillFromMotion(mot){const id='u'+Date.now().toString(36);const nm=mot.startsWith('c:')?(CLIPS[mot.slice(2)]||{}).name:(KEYMOTION[mot.slice(2)]||{}).name;
-  const c=mot.startsWith('c:')?CLIPS[mot.slice(2)]:null;const peak=c&&c.peak?(['anR','anL','wrR','wrL'].sort((a,b)=>(c.peak[a]==null)-(c.peak[b]==null))[0]):undefined;
-  DB.skills[id]={id,name:(nm||'새 스킬')+' 스킬',rar:'R',cat:'kick',mot,hits:[H(c?-1:.5,2.6,1.4,1.4)],fx:[F(c?-1:.5,'impacts/hit-spark','front',1)],cd:2,peak,user:true};saveAll();refreshSK();skSel=id;curTab='skill';renderTabs();renderTab();toast('모션으로 스킬을 만들었어요. 이름·등급·피해·효과를 정하고 저장하세요',2200);}
-function motionEdit(id){const m=DB.motions[id];return`<div class="card" id="moEdit"><div class="f"><label>이름</label><input id="moN" value="${esc(m.name)}"><label>시작 자르기</label><input id="moA" type="range" min="0" max="${m.frames.length-2}" value="0"><label>끝 자르기</label><input id="moB" type="range" min="1" max="${m.frames.length}" value="${m.frames.length}">
-  <label>좌우 반전</label><span><input type="checkbox" id="moMir"> 왼발·오른발 바꾸기</span></div><p class="note" id="moInfo">${m.frames.length}프레임 · ${m.dur}초</p>
-  <div class="btns" style="justify-content:flex-start"><button data-play2>▶ 보기</button><button class="pri" data-apply>적용</button><button class="blue" data-sk>이 모션으로 스킬 만들기</button><button class="bad" data-del>삭제</button></div></div>`;}
+/* ---------- 모션 스튜디오 (메이커 안에서 바로 동작 만들기) ---------- */
+const RAW={};const VIDS={};
+const ST={on:false,mot:null,t:0,play:true,spd:1,mir:false,a:0,b:0,hit:null,lastT:0};
+function motInfo(mot){if(!mot)return null;const [k,id]=mot.split(':');if(k==='k'){const m=KEYMOTION[id];return m?{type:'k',m,dur:m.dur,name:m.name||id,id}:null;}const c=CLIPS[id];return c?{type:'c',c,dur:c.dur,name:c.name||id,id,user:!!DB.motions[id]}:null;}
+function stLoad(mot){const i=motInfo(mot);if(!i)return;Object.assign(ST,{on:true,mot,t:0,a:0,b:i.dur,hit:null,mir:false,play:true,_mirOf:null});P.act=null;
+  if(i.type==='c'){const pk=i.c.peak||{};const k=['anR','anL','wrR','wrL'].find(x=>pk[x]!=null);if(k)ST.hit=Math.min(i.dur,pk[k]);}else ST.hit=i.dur*.5;}
+function stClip(i){if(ST.mir&&i.type==='c'){if(ST._mirOf!==i.id){const raw=RAW[i.id];if(raw){addClip('_mir',Object.assign({},raw,{frames:raw.frames.map(f=>mirrorFrame({w:f.w,r:Array.isArray(f.r)?f.r:[f.r.x,f.r.y,f.r.z]}))}));ST._mirOf=i.id;}}return CLIPS._mir||i.c;}return i.c;}
+function studioTick(dt){const i=motInfo(ST.mot);if(!i){ST.on=false;return;}
+  const prev=ST.t;if(ST.play){ST.t+=dt*ST.spd;if(ST.t>ST.b||ST.t<ST.a)ST.t=ST.a;}
+  if(ST.play&&ST.hit!=null&&prev<ST.hit&&ST.t>=ST.hit){const fw=new V3(Math.sin(P.face),0,Math.cos(P.face));pfx('impacts/hit-spark',P.pos.clone().addScaledVector(fw,1.2).setY(1),{over:true,scale:.8});sfx('Hit',.25,1.3);}
+  P.rig.root.position.set(P.pos.x,0,P.pos.z);P.rig.root.rotation.y=P.face;P.rig.root.visible=true;
+  if(i.type==='k'){const k=clamp(ST.t/i.dur,0,1);pose(P.rig,track(i.m.keys,ST.t),i.m.jump?Math.sin(k*PI)*i.m.jump:0);}
+  else{clipPose(P.rig,stClip(i),ST.t);groundFix(P.rig);}
+  stUI(i);}
+function stUI(i){const sk=$('#stSeek');if(!sk)return;if(document.activeElement!==sk)sk.value=ST.t;$('#stTm').textContent=ST.t.toFixed(2)+' / '+i.dur.toFixed(2)+'초';
+  const pc=x=>(100*x/i.dur)+'%';$('#stRange').style.left=pc(ST.a);$('#stRange').style.width=(100*(ST.b-ST.a)/i.dur)+'%';const h=$('#stHit');h.hidden=ST.hit==null;if(ST.hit!=null)h.style.left=pc(ST.hit);
+  const v=$('#stVid');if(v&&!v.hidden&&v.readyState>=1){const want=(RAW[i.id]&&RAW[i.id].v0||0)+ST.t;if(Math.abs(v.currentTime-want)>.08&&!v.seeking)v.currentTime=want;}}
+function stTrimmedRaw(i){const raw=RAW[i.id];if(!raw)return null;const fps=raw.fps||30;const fa=Math.max(0,Math.round(ST.a*fps)),fb=Math.min(raw.frames.length,Math.max(fa+4,Math.round(ST.b*fps)));
+  let fr=raw.frames.slice(fa,fb).map(f=>({w:f.w,r:Array.isArray(f.r)?f.r:[f.r.x,f.r.y,f.r.z]}));if(ST.mir)fr=fr.map(mirrorFrame);const x0=fr[0].r[0],z0=fr[0].r[2];fr=fr.map(f=>({w:f.w,r:[Math.round((f.r[0]-x0)*1000)/1000,f.r[1],Math.round((f.r[2]-z0)*1000)/1000]}));
+  const pk={};Object.keys(raw.peak||{}).forEach(k=>pk[k]=clamp(raw.peak[k]-fa/fps,0,fr.length/fps));if(ST.hit!=null){const h=clamp(ST.hit-fa/fps,0,fr.length/fps);pk.anR=pk.anL=pk.wrR=pk.wrL=h;}
+  return{name:raw.name,fps,frames:fr,peak:pk,dur:Math.round(fr.length/fps*100)/100,src:'video',v0:(raw.v0||0)+fa/fps};}
+function stSave(name,asNew){const i=motInfo(ST.mot);if(!i||i.type!=='c')return null;const c=stTrimmedRaw(i);if(!c)return null;c.name=name||c.name;
+  const id=(!asNew&&i.user)?i.id:'v'+Date.now().toString(36);DB.motions[id]=c;RAW[id]=c;addClip(id,c);CLIPS[id].src='video';if(VIDS[i.id])VIDS[id]=VIDS[i.id];saveAll();const hit=ST.hit!=null?clamp(ST.hit-ST.a,0,c.dur):null;stLoad('c:'+id);ST.hit=hit;return id;}
+function tabMotion(el){if(!ST.mot||!motInfo(ST.mot))stLoad('c:'+(Object.keys(DB.motions)[0]||'spinkick'));ST.on=true;const i=motInfo(ST.mot);const user=Object.keys(DB.motions);
+  el.innerHTML=`<div class="card" id="stud"><b>🎬 모션 스튜디오</b> <span class="lab">아래 캐릭터가 바로 따라 해요</span>
+    <div class="row"><select id="stSel" style="flex:1">${motionOptions(ST.mot)}</select></div>
+    <video id="stVid" muted playsinline preload="auto" style="width:100%;max-height:150px;background:#000;border-radius:8px;${ST.mir?'transform:scaleX(-1)':''}" ${VIDS[i.id]?'':'hidden'}></video>
+    <div style="position:relative;height:30px;margin-top:6px"><div style="position:absolute;left:0;right:0;top:12px;height:6px;background:#0f131a;border-radius:3px"></div><div id="stRange" style="position:absolute;top:12px;height:6px;background:var(--ac2);border-radius:3px"></div>
+      <div id="stHit" style="position:absolute;top:2px;width:3px;height:26px;margin-left:-1px;background:var(--ac);box-shadow:0 0 6px var(--ac)"></div>
+      <input type="range" id="stSeek" min="0" max="${i.dur}" step="0.01" value="${ST.t}" style="position:absolute;inset:0;width:100%;opacity:.55"></div>
+    <div class="row"><button id="stPlay">${ST.play?'⏸ 멈춤':'▶ 재생'}</button><span id="stTm" class="lab"></span>${[.25,.5,1].map(s=>`<button data-spd="${s}" class="${ST.spd===s?'on':''}">${s}×</button>`).join('')}${i.type==='c'?`<button id="stMir" class="${ST.mir?'on':''}">좌우반전</button>`:''}</div>
+    <div class="row"><button id="stPrev">◀ 한 칸</button><button id="stNext">한 칸 ▶</button>${i.type==='c'?'<button id="stA">[ 여기서 시작</button><button id="stB">여기서 끝 ]</button>':''}<button id="stH">⚡ 여기가 타격 순간</button></div>
+    <p class="note">파란 줄이 쓸 구간, 노란 줄이 타격 순간이에요. 멈추고 줄을 끌어서 맞춰요.</p>
+    <div class="f"><label>이름</label><input id="stName" value="${esc(i.name)}"></div>
+    <div class="btns" style="justify-content:flex-start">${i.type==='c'?`<button class="pri" id="stSave">💾 ${i.user?'잘라서 저장':'내 모션으로 저장'}</button>`:''}<button class="blue" id="stSk">📜 이 모션으로 스킬 만들기</button>${i.user?'<button class="bad" id="stDel">삭제</button>':''}</div></div>
+  <div class="card" style="margin-top:10px"><b>＋ 새 모션 만들기</b>
+    <div class="row"><input id="mvName" placeholder="모션 이름 (예: 내 540)" style="flex:1"></div>
+    <div class="row"><button class="pri" id="camOpen">📷 카메라로 바로 찍기</button><select id="camSec">${[3,5,8].map(s=>`<option value="${s}" ${s===5?'selected':''}>${s}초</option>`).join('')}</select><button id="mvUp">🎞 영상 올리기</button></div>
+    <p class="note">몸 전체가 화면에 나오게 서서 찍어요. 사람 한 명만 나오는 겨루기·품새·시범 영상, 다른 게임 영상도 돼요. 영상은 이 기기 안에서만 분석돼요.</p><p class="note" id="mvMsg"></p></div>
+  <h4>내가 만든 모션 ${user.length}개</h4><div class="list">${user.map(id=>`<div class="li ${'c:'+id===ST.mot?'on':''}" data-ld="c:${id}">🎥 ${esc(DB.motions[id].name)}<span class="r">${DB.motions[id].dur}초</span></div>`).join('')||'<p class="note">아직 없어요.</p>'}</div>
+  <h4>모캡 모션 (사람이 실제로 한 동작)</h4><div class="list">${Object.keys(CLIPS).filter(id=>!DB.motions[id]&&id[0]!=='_').map(id=>`<div class="li ${'c:'+id===ST.mot?'on':''}" data-ld="c:${id}">🧍 ${esc(CLIPS[id].name||id)}<span class="r">${CLIPS[id].dur.toFixed(1)}초</span></div>`).join('')}</div>
+  <h4>키프레임 모션 (태권도·트릭킹·무기)</h4><div class="list">${Object.keys(KEYMOTION).map(id=>`<div class="li ${'k:'+id===ST.mot?'on':''}" data-ld="k:${id}">🎬 ${esc(KEYMOTION[id].name||id)}</div>`).join('')}</div>`;
+  const q=s=>el.querySelector(s);const vid=q('#stVid');if(VIDS[i.id]){vid.src=VIDS[i.id];}
+  stUI(i);
+  q('#stSel').onchange=e=>{stLoad(e.target.value);renderTab();};
+  el.querySelectorAll('[data-ld]').forEach(li=>li.onclick=()=>{stLoad(li.dataset.ld);renderTab();$('#tab').scrollTop=0;});
+  q('#stPlay').onclick=()=>{ST.play=!ST.play;q('#stPlay').textContent=ST.play?'⏸ 멈춤':'▶ 재생';};
+  q('#stSeek').oninput=e=>{ST.play=false;ST.t=+e.target.value;q('#stPlay').textContent='▶ 재생';};
+  el.querySelectorAll('[data-spd]').forEach(b=>b.onclick=()=>{ST.spd=+b.dataset.spd;el.querySelectorAll('[data-spd]').forEach(x=>x.classList.toggle('on',x===b));});
+  const step=d=>{ST.play=false;ST.t=clamp(ST.t+d,0,i.dur);q('#stPlay').textContent='▶ 재생';};q('#stPrev').onclick=()=>step(-1/30);q('#stNext').onclick=()=>step(1/30);
+  if(q('#stMir'))q('#stMir').onclick=()=>{ST.mir=!ST.mir;ST._mirOf=null;q('#stMir').classList.toggle('on',ST.mir);vid.style.transform=ST.mir?'scaleX(-1)':'';};
+  if(q('#stA'))q('#stA').onclick=()=>{ST.a=Math.min(ST.t,ST.b-.15);};if(q('#stB'))q('#stB').onclick=()=>{ST.b=Math.max(ST.t,ST.a+.15);};
+  q('#stH').onclick=()=>{ST.hit=ST.t;toast('⚡ 타격 순간: '+ST.t.toFixed(2)+'초',900);};
+  if(q('#stSave'))q('#stSave').onclick=()=>{const id=stSave(q('#stName').value.trim(),!i.user);if(id){toast('저장했어요 · 스킬 모션 목록에 들어가요',1300);renderTab();}};
+  q('#stSk').onclick=()=>{let mot=ST.mot,hit=null;const cur=motInfo(ST.mot);
+    if(cur.type==='c'&&(ST.a>.02||ST.b<cur.dur-.02||ST.mir||!cur.user)){const id=stSave(q('#stName').value.trim()||cur.name,!cur.user);mot='c:'+id;}
+    const ni=motInfo(mot);hit=ST.hit!=null?clamp(ST.hit/ni.dur,.02,.98):null;makeSkillFromMotion(mot,hit,q('#stName').value.trim());};
+  if(q('#stDel'))q('#stDel').onclick=()=>{if(!confirm('이 모션을 지울까요?'))return;delete DB.motions[i.id];delete CLIPS[i.id];delete RAW[i.id];saveAll();stLoad('c:spinkick');renderTab();};
+  q('#mvUp').onclick=()=>$('#fVideo').click();q('#camOpen').onclick=()=>camOpen(+q('#camSec').value,q('#mvName').value.trim());}
+function makeSkillFromMotion(mot,hitFrac,nm0){const id='u'+Date.now().toString(36);const nm=nm0||(mot.startsWith('c:')?(CLIPS[mot.slice(2)]||{}).name:(KEYMOTION[mot.slice(2)]||{}).name);
+  const c=mot.startsWith('c:')?CLIPS[mot.slice(2)]:null;const peak=c&&c.peak?(['anR','anL','wrR','wrL'].find(k=>c.peak[k]!=null)):undefined;const t=hitFrac!=null?hitFrac:(c?-1:.5);
+  DB.skills[id]={id,name:(nm||'새')+' 스킬',rar:'R',cat:'kick',mot,hits:[H(t,2.6,1.4,1.4)],fx:[F(t,'impacts/hit-spark','front',1)],cd:2,peak,user:true};saveAll();refreshSK();skSel=id;curTab='skill';ST.on=false;renderTabs();renderTab();toast('모션으로 스킬을 만들었어요. 이름·등급·피해·효과를 정하고 저장하세요',2200);}
 function mirrorFrame(f){const w=f.w.slice();const sw=[[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[23,24],[25,26],[27,28],[29,30],[31,32],[1,4],[2,5],[3,6],[7,8],[9,10]];
   for(let i=0;i<33;i++)w[i*3]=-w[i*3];sw.forEach(([a,b])=>{for(let k=0;k<3;k++){const t=w[a*3+k];w[a*3+k]=w[b*3+k];w[b*3+k]=t;}});return{w,r:[-f.r[0],f.r[1],f.r[2]]};}
-function wireMotionEdit(el,id){const m=DB.motions[id];const info=()=>{const a=+el.querySelector('#moA').value,b=+el.querySelector('#moB').value;el.querySelector('#moInfo').textContent=`${Math.max(0,b-a)}프레임 · ${(Math.max(0,b-a)/m.fps).toFixed(2)}초`;};
-  el.querySelector('#moA').oninput=info;el.querySelector('#moB').oninput=info;
-  el.querySelector('[data-play2]').onclick=()=>playMotion('c:'+id);
-  el.querySelector('[data-apply]').onclick=()=>{const a=+el.querySelector('#moA').value,b=+el.querySelector('#moB').value;if(b-a<4){toast('너무 짧아요',1000);return;}
-    let fr=m.frames.slice(a,b);if(el.querySelector('#moMir').checked)fr=fr.map(mirrorFrame);const x0=fr[0].r[0];fr=fr.map(f=>({w:f.w,r:[f.r[0]-x0,f.r[1],f.r[2]]}));
-    const pk={};Object.keys(m.peak||{}).forEach(k=>pk[k]=clamp((m.peak[k]-a/m.fps),0,fr.length/m.fps));
-    DB.motions[id]=Object.assign({},m,{name:el.querySelector('#moN').value.trim()||m.name,frames:fr,peak:pk,dur:Math.round(fr.length/m.fps*100)/100});addClip(id,DB.motions[id]);CLIPS[id].src='video';saveAll();renderTab();toast('적용했어요',900);};
-  el.querySelector('[data-sk]').onclick=()=>makeSkillFromMotion('c:'+id);
-  el.querySelector('[data-del]').onclick=()=>{if(!confirm('이 모션을 지울까요?'))return;delete DB.motions[id];delete CLIPS[id];moSel=null;saveAll();renderTab();};}
+function addUserMotion(c,url){const id='v'+Date.now().toString(36);c.v0=0;DB.motions[id]=c;RAW[id]=c;addClip(id,c);CLIPS[id].src='video';if(url)VIDS[id]=url;saveAll();stLoad('c:'+id);curTab='motion';renderTabs();renderTab();
+  toast('모션을 만들었어요! 구간과 타격 순간을 맞추고 스킬로 만들어요',2400);}
 $('#fVideo').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const nmEl=$('#mvName');const name=(nmEl&&nmEl.value.trim())||f.name.replace(/\.[^.]+$/,'').slice(0,20)||'내 모션';
-  try{const c=await videoToClip(f,name);if(!c)return;const id='v'+Date.now().toString(36);DB.motions[id]=c;addClip(id,c);CLIPS[id].src='video';saveAll();moSel=id;curTab='motion';renderTab();toast('모션을 만들었어요! ▶로 보고, 앞뒤를 잘라 스킬로 만들어요',2200);playMotion('c:'+id);}
+  try{const c=await videoToClip(f,name);if(!c)return;const url=c._url;delete c._url;addUserMotion(c,url);}
   catch(err){const m=$('#mvMsg');if(m)m.textContent='모션을 못 만들었어요: '+(err.message||err);toast('모션을 못 만들었어요',1400);}};
+/* 카메라로 바로 찍기 */
+let CAM={stream:null,face:'user',busy:false,secs:5,name:''};
+async function camStart(){camStop();try{CAM.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:CAM.face,width:{ideal:640},height:{ideal:480}},audio:false});}
+  catch(e){$('#camT').textContent='카메라를 켤 수 없어요. 카메라 권한을 허용해 주세요.';return false;}const v=$('#camV');v.srcObject=CAM.stream;v.style.transform=CAM.face==='user'?'scaleX(-1)':'';await v.play().catch(()=>{});return true;}
+function camStop(){if(CAM.stream){CAM.stream.getTracks().forEach(t=>t.stop());CAM.stream=null;}}
+async function camOpen(secs,name){CAM.secs=secs||5;CAM.name=name;$('#mCam').hidden=false;$('#camT').textContent='모션 인식 엔진 준비 중…';$('#camGo').disabled=true;
+  try{await getPose();}catch(e){$('#camT').textContent='모션 인식 엔진을 못 불러왔어요';return;}
+  if(await camStart()){$('#camT').textContent='몸 전체가 나오게 서서 [시작]을 눌러요';$('#camGo').disabled=false;}}
+$('#camX').onclick=()=>{CAM.busy=false;camStop();$('#mCam').hidden=true;};
+$('#camFlip').onclick=async()=>{if(CAM.busy)return;CAM.face=CAM.face==='user'?'environment':'user';await camStart();};
+$('#camGo').onclick=async()=>{if(CAM.busy||!CAM.stream)return;CAM.busy=true;$('#camGo').disabled=true;const T=$('#camT'),v=$('#camV');
+  for(let n=3;n>0;n--){T.textContent=n;sfx('Fx',.3,1.5);await new Promise(r=>setTimeout(r,800));if(!CAM.busy)return;}
+  T.textContent='시작!';sfx('Fx',.4,2);const ps=await getPose();const raw=[];const t0=performance.now();let last=null;
+  ps.onResults(r=>{if(r.poseWorldLandmarks&&r.poseLandmarks){const w=[];r.poseWorldLandmarks.forEach(p=>w.push(p.x,p.y,p.z));const nl=r.poseLandmarks;last={w,n:[(nl[23].x+nl[24].x)/2,(nl[23].y+nl[24].y)/2,Math.max(nl[27].y,nl[28].y,nl[31].y,nl[32].y)]};}});
+  while(CAM.busy&&performance.now()-t0<CAM.secs*1000){const t=(performance.now()-t0)/1000;await ps.send({image:v});if(last)raw.push({t,w:last.w,n:last.n});T.textContent='● 녹화 중 '+t.toFixed(1)+'초';}
+  const aspect=v.videoWidth/v.videoHeight||4/3;camStop();CAM.busy=false;$('#mCam').hidden=true;
+  if(raw.length<6){toast('사람을 거의 찾지 못했어요. 몸 전체가 나오게 다시 찍어요',1800);return;}
+  const fps=24,N=Math.floor(raw[raw.length-1].t*fps);const rs=[];let j=0;for(let k=0;k<=N;k++){const tt=k/fps;while(j<raw.length-1&&Math.abs(raw[j+1].t-tt)<=Math.abs(raw[j].t-tt))j++;let f=raw[j];
+    if(CAM.face==='environment'){}rs.push({w:f.w,n:f.n});}
+  const c=buildClip(rs,fps,aspect,CAM.name||'카메라 모션');addUserMotion(c,null);};
 
 /* ---------- 아이템: 사진 → 무기 ---------- */
 const ITYPES=[['sword','검','weapon'],['rapier','레이피어','weapon'],['axe','도끼','weapon'],['blunt','둔기·망치','weapon'],['spear','창','weapon'],['staff','지팡이','weapon'],['gun','총','weapon'],['shield','방패','shield'],['bow','활','bow']];
@@ -463,13 +519,13 @@ function tabSave(el){const n=Object.keys(DB.skills).length,m=Object.keys(DB.moti
 $('#fJson').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.DB)throw 0;
   Object.assign(DB.skills,j.DB.skills||{});Object.assign(DB.motions,j.DB.motions||{});Object.assign(DB.items,j.DB.items||{});if(j.DB.stage)DB.stage=Object.assign({},DEF_STAGE,j.DB.stage);if(j.DB.mobs)DB.mobs=j.DB.mobs;
   if(j.S){['slots','combo','skin','mcskin'].forEach(k=>{if(j.S[k]!==undefined)S[k]=j.S[k];});}
-  Object.keys(DB.motions).forEach(id=>{addClip(id,DB.motions[id]);CLIPS[id].src='video';});saveAll();refreshSK();buildPad();refreshSkin();renderTab();toast('불러왔어요',1000);}catch(err){toast('맞는 파일이 아니에요',1200);}};r.readAsText(f);};
+  Object.assign(RAW,DB.motions);Object.keys(DB.motions).forEach(id=>{addClip(id,DB.motions[id]);CLIPS[id].src='video';});saveAll();refreshSK();buildPad();refreshSkin();renderTab();toast('불러왔어요',1000);}catch(err){toast('맞는 파일이 아니에요',1200);}};r.readAsText(f);};
 
 /* ================= 시작 ================= */
 (async function init(){$('#waveT').textContent='불러오는 중…';
   await packReady;
-  try{const cj=await (await fetch('clips.json')).json();Object.keys(cj).forEach(id=>{try{addClip(id,cj[id]);CLIPS[id].src='mocap';}catch(e){}});}catch(e){console.warn('clips',e);}
-  Object.keys(DB.motions).forEach(id=>{try{addClip(id,DB.motions[id]);CLIPS[id].src='video';}catch(e){}});
+  try{const cj=await (await fetch('clips.json')).json();Object.assign(RAW,cj);Object.keys(cj).forEach(id=>{try{addClip(id,cj[id]);CLIPS[id].src='mocap';}catch(e){}});}catch(e){console.warn('clips',e);}
+  Object.assign(RAW,DB.motions);Object.keys(DB.motions).forEach(id=>{try{addClip(id,DB.motions[id]);CLIPS[id].src='video';}catch(e){}});
   COINTEX=tex(await load('a/fx/Coin2.png').then(i=>{const c=cnv(i.height,i.height);c.getContext('2d').drawImage(i,0,0);return c;}).catch(()=>solid('#ffd24a')));
   ARROWIMG=await load('a/wp/Arrow.png').catch(()=>null);
   if(!S.eq.weapon){S.eq.weapon=makeItem('weapon',1,'N');S.eq.bow=makeItem('bow',0,'N');}

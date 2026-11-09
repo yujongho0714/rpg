@@ -151,14 +151,15 @@ input[type=range]{padding:0}input[type=checkbox]{width:18px;height:18px}
   <input id="pwIn" type="password" style="width:100%" autocomplete="off"><div class="btns"><button id="pwNo">취소</button><button class="pri" id="pwOk">확인</button></div></div></div>
 <div class="modal" id="mEx" hidden><div class="box" style="width:min(400px,100%)"><h2>🎥 영상에서 동작 읽는 중</h2><div class="prog"><i id="exBar"></i></div><p class="note" id="exTxt"></p><div class="btns"><button id="exStop">그만</button></div></div></div>
 
+<div class="modal" id="mCam" hidden><div class="box" style="text-align:center;width:min(520px,100%)"><h2>📷 카메라로 동작 찍기</h2><video id="camV" muted playsinline autoplay style="width:100%;max-height:52vh;border-radius:10px;background:#000"></video><div id="camT" style="font-size:26px;font-family:'Black Han Sans';margin:8px 0;min-height:34px"></div><div class="btns" style="justify-content:center"><button id="camFlip">🔄 앞·뒤 카메라</button><button id="camX">닫기</button><button id="camGo" class="pri">● 시작</button></div></div></div>
 <aside id="maker"><header>🛠 게임 메이커 <button id="mkClose">✕</button></header><nav id="tabs"></nav><div id="tab"></div></aside>
 <input type="file" id="fVideo" accept="video/*" hidden><input type="file" id="fPhoto" accept="image/*" hidden><input type="file" id="fSkin" accept="image/png" hidden><input type="file" id="fJson" accept=".json,application/json" hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="pixelfx.js"></script>
-<script src="engine.js?v=3"></script>
-<script src="data.js?v=3"></script>
-<script src="game.js?v=3"></script>
-<script src="ui.js?v=3"></script>
+<script src="engine.js?v=4"></script>
+<script src="data.js?v=4"></script>
+<script src="game.js?v=4"></script>
+<script src="ui.js?v=4"></script>
 </body>
 </html>
