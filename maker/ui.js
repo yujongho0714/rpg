@@ -71,9 +71,13 @@ function playerTick(dt){P.inv=Math.max(0,P.inv-dt);for(const k in P.cd)P.cd[k]=M
   P.rig.root.visible=!(P.inv>0&&!P.act&&Math.floor(performance.now()/60)%2);}
 
 /* ================= 화면 갱신 ================= */
-const camOff=new V3(0,10.5,9.8),camLook=new V3();
+const camOff=new V3(0,10.5,9.8),camLook=new V3(),camVO={x:0,y:0};
 function camTick(dt){const want=P.pos.clone().add(innerWidth<innerHeight?new V3(0,13,11):camOff);cam.position.lerp(want,Math.min(1,dt*6));camLook.lerp(new V3(P.pos.x,1,P.pos.z),Math.min(1,dt*8));
   cam.lookAt(camLook);if(shake>0){cam.position.x+=rnd(-1,1)*shake*.5;cam.position.y+=rnd(-1,1)*shake*.5;shake=Math.max(0,shake-dt*1.4);}
+  // 메이커 창이 열려 있으면 캐릭터가 창에 가리지 않게 화면을 옮김
+  const open=$('#maker').classList.contains('open');const mob=innerWidth<=600;const mw=$('#maker').offsetWidth,mh=$('#maker').offsetHeight;
+  const tx=open&&!mob?mw/2:0,ty=open&&mob?-mh/2:0;camVO.x+=(tx-camVO.x)*Math.min(1,dt*8);camVO.y+=(ty-camVO.y)*Math.min(1,dt*8);
+  if(Math.abs(camVO.x)>.5||Math.abs(camVO.y)>.5)cam.setViewOffset(innerWidth,innerHeight,camVO.x,camVO.y,innerWidth,innerHeight);else if(cam.view&&cam.view.enabled)cam.clearViewOffset();
   sun.position.set(P.pos.x+7,16,P.pos.z+9);sun.target.position.set(P.pos.x,0,P.pos.z);}
 const _v=new V3();
 function barsTick(){let boss=null;mobs.forEach(m=>{if(m.barH==null){const b=new THREE.Box3().setFromObject(m.obj);m.barH=b.max.y-m.obj.position.y+.25;}
