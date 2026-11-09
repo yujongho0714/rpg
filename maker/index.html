@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>정도 게임 메이커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Jua&family=Orbitron:wght@700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--pan:#161a23;--pan2:#1e2430;--line:#2c3442;--tx:#e9edf5;--mu:#8e9ab0;--ac:#ffd24a;--ac2:#4aa3ff;--bad:#ff4a5a;--ok:#5fe08a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'Do Hyeon',system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+button{font-family:inherit;cursor:pointer;border:0;border-radius:10px;background:var(--pan2);color:var(--tx);font-size:15px;padding:8px 12px}
+button:hover{filter:brightness(1.15)}button.pri{background:var(--ac);color:#231a00}button.blue{background:var(--ac2);color:#001a33}button.bad{background:#5a1a22;color:#ffc9cf}button.on{outline:2px solid var(--ac)}
+input,select,textarea{font-family:inherit;font-size:15px;background:#0f131a;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0}
+input[type=range]{padding:0}input[type=checkbox]{width:18px;height:18px}
+.hud{position:fixed;z-index:5;pointer-events:none}
+#hudL{left:12px;top:max(10px,env(safe-area-inset-top));width:min(260px,46vw)}
+.hp{height:16px;background:#2a0f14;border-radius:8px;overflow:hidden;border:2px solid #000;position:relative}
+.hp i{display:block;height:100%;background:linear-gradient(#ff6a6a,#d0263a);width:100%;transition:width .15s}
+.hp span{position:absolute;inset:0;text-align:center;font-size:12px;line-height:13px;text-shadow:0 1px 0 #000}
+.stats{display:flex;gap:8px;margin-top:5px;font-size:14px;text-shadow:0 1px 2px #000}
+.stats b{color:var(--ac)}
+#hudC{left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);text-align:center;text-shadow:0 2px 3px #000;width:min(520px,60vw)}
+#waveT{font-size:19px}#killT{font-size:13px;color:#c9d2e3}
+#bossbar{margin-top:6px}#bossName{font-family:'Black Han Sans';font-size:16px;color:#e9c8ff}
+#bossbar .hp{height:14px;border-color:#2a0a3a}#bossbar .hp i{background:linear-gradient(#d07bff,#7a1ad0)}
+#topR{position:fixed;right:10px;top:max(10px,env(safe-area-inset-top));z-index:6;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:52vw}
+#topR button{padding:7px 10px;font-size:14px;background:rgba(22,26,35,.85)}
+#movename{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:5;font-family:'Black Han Sans';font-size:34px;letter-spacing:1px;text-shadow:0 3px 0 #000,0 0 12px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast{position:fixed;left:50%;top:32%;transform:translateX(-50%);z-index:30;background:rgba(10,12,18,.9);padding:10px 16px;border-radius:12px;font-size:17px;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:86vw;border:1px solid var(--line)}
+.mbar{position:fixed;z-index:4;width:44px;height:6px;background:#300;border:1px solid #000;transform:translate(-50%,-50%);pointer-events:none;border-radius:3px;overflow:hidden}
+.mbar i{display:block;height:100%;width:100%;background:#ff4a4a}.mbar.boss{display:none}
+.mbar.dummy{width:auto;height:auto;background:rgba(0,0,0,.6);padding:2px 7px;font-size:13px;border-radius:8px;overflow:visible;white-space:nowrap}
+.mbar.dummy i{display:none}
+/* 조작 버튼 */
+#pad{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:6;display:grid;grid-template-columns:repeat(4,62px);gap:8px}
+.sk{position:relative;width:62px;height:62px;border-radius:50%;background:rgba(22,26,35,.82);border:2px solid #39445a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.05;text-align:center;padding:4px;overflow:hidden;touch-action:none}
+.sk b{font-size:10px;color:var(--mu);position:absolute;top:5px;left:0;right:0}.sk em{font-style:normal;font-size:20px}
+.sk .cd{position:absolute;inset:0;background:rgba(0,0,0,.65);transform-origin:bottom;transform:scaleY(0);pointer-events:none}
+.sk .nm{font-size:11px;max-width:56px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sk.big{width:74px;height:74px;grid-column:span 1}
+#joy{position:fixed;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);z-index:6;touch-action:none}
+#joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:rgba(255,255,255,.22)}
+#keys{position:fixed;left:12px;bottom:10px;z-index:5;font-size:12px;color:#9aa6bb;text-shadow:0 1px 2px #000;pointer-events:none}
+@media (hover:hover) and (pointer:fine){#joy{display:none}}
+@media (hover:none),(pointer:coarse){#keys{display:none}}
+/* 모달 */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px}
+.modal[hidden]{display:none}
+.box{background:var(--pan);border:1px solid var(--line);border-radius:16px;padding:16px;width:min(560px,100%);max-height:92vh;overflow:auto;touch-action:pan-y;user-select:text}
+.box h2{margin:0 0 10px;font-family:'Black Han Sans';font-weight:400;font-size:22px;display:flex;align-items:center;gap:8px}
+.box h2 .x{margin-left:auto;padding:4px 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.note{color:var(--mu);font-size:14px;margin:6px 0;line-height:1.4}
+.card{background:var(--pan2);border-radius:12px;padding:12px;border:2px solid var(--line);position:relative}
+.card .rar{display:inline-block;padding:1px 8px;border-radius:6px;font-size:13px;color:#111;margin-right:6px}
+.card h3{margin:2px 0 6px;font-size:20px;font-weight:400}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cmp .card{font-size:14px}.lab{color:var(--mu);font-size:12px}
+.diff{font-size:14px;margin:2px 0}.up{color:var(--ok)}.dn{color:var(--bad)}.same{color:var(--mu)}
+.slots{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+.slotb{text-align:left;padding:10px;border-radius:12px;background:var(--pan2);border:2px solid var(--line);font-size:14px;line-height:1.35}
+.slotb:hover{border-color:var(--ac)}
+.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.it{aspect-ratio:1;border-radius:10px;background:var(--pan2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;padding:4px;cursor:pointer}
+.it img,.it canvas{max-width:80%;max-height:80%;image-rendering:pixelated}
+.it small{position:absolute;bottom:1px;left:2px;right:2px;font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .e{position:absolute;top:2px;right:4px;font-size:11px;color:var(--ac)}
+.ico{width:44px;height:44px;image-rendering:pixelated;object-fit:contain;vertical-align:middle}
+/* 메이커 서랍 */
+#maker{position:fixed;right:0;top:0;bottom:0;width:min(440px,100vw);z-index:20;background:rgba(18,21,29,.97);border-left:1px solid var(--line);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s;touch-action:pan-y;user-select:text}
+#maker.open{transform:none}
+#maker header{display:flex;align-items:center;gap:6px;padding:10px 10px 6px;font-family:'Black Han Sans';font-size:19px}
+#maker header button{margin-left:auto;padding:4px 10px}
+#tabs{display:flex;gap:4px;padding:0 8px 8px;overflow-x:auto;flex-shrink:0}
+#tabs button{padding:6px 9px;font-size:14px;white-space:nowrap;background:#121620}
+#tabs button.on{background:var(--ac);color:#231a00;outline:0}
+#tab{flex:1;overflow:auto;padding:4px 12px 40px}
+#tab h4{margin:14px 0 6px;font-size:16px;font-weight:400;color:var(--ac)}
+.f{display:grid;grid-template-columns:96px 1fr;gap:6px 8px;align-items:center;font-size:14px}
+.f label{color:var(--mu)}
+.list{display:flex;flex-direction:column;gap:4px}
+.li{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:10px;background:var(--pan2);font-size:14px;cursor:pointer;border:1px solid transparent}
+.li:hover{border-color:var(--line)}.li.on{border-color:var(--ac)}
+.li .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.li .r{margin-left:auto;color:var(--mu);font-size:12px}
+.hitrow{display:grid;grid-template-columns:repeat(5,1fr) 28px;gap:4px;margin:3px 0}.hitrow input,.hitrow select{width:100%;padding:4px;font-size:13px}
+.hitrow button{padding:2px}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:5px}
+.skins canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border-radius:8px;background:#0f131a;cursor:pointer;border:2px solid transparent}
+.skins canvas:hover{border-color:var(--ac)}
+.prog{height:10px;background:#0f131a;border-radius:5px;overflow:hidden}.prog i{display:block;height:100%;width:0;background:var(--ac2)}
+#start .box{text-align:center}
+#start h1{font-family:'Black Han Sans';font-weight:400;font-size:40px;margin:6px 0;color:var(--ac);text-shadow:0 3px 0 #5a3d00}
+#start .big{font-size:19px;padding:12px;width:100%;margin:5px 0}
+.credit{font-size:11px;color:#6d788c;margin-top:10px;line-height:1.5}
+/* 데미지 숫자 + 데미지 스킨 */
+.dmg{position:fixed;z-index:8;transform:translate(-50%,-50%);pointer-events:none;font-family:'Jua';font-size:26px;color:#fff;-webkit-text-stroke:1.5px #2a1a00;text-shadow:0 3px 0 rgba(0,0,0,.5);white-space:nowrap;animation:pop .18s ease-out}
+.dmg.crit{font-size:38px}.dmg.big{font-size:32px}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(1.8)}100%{transform:translate(-50%,-50%) scale(1)}}
+.ds-hurt{color:#ff5a5a;font-size:22px;-webkit-text-stroke:1px #300}
+.ds-dot{font-size:18px;-webkit-text-stroke:1px #000}.ds-burn{color:#ff9a3a}.ds-poison{color:#8aff5a}.ds-bleed{color:#ff2a4a}.ds-shock{color:#9fd4ff}
+.ds-basic{color:#fff3c4;-webkit-text-stroke:1.5px #5a3a00}.ds-basic.crit{color:#ffd24a}
+.ds-mint{color:#b6ffe8;-webkit-text-stroke:2px #3b2416;font-family:'Jua'}.ds-mint.crit{color:#7affd0}
+.ds-fire{color:#ffd04a;-webkit-text-stroke:1.5px #8a1a00;text-shadow:0 0 8px #ff5a00,0 0 18px #ff2a00;font-family:'Black Han Sans'}
+.ds-ice{color:#e6fbff;-webkit-text-stroke:1.5px #1a5a8a;text-shadow:0 0 10px #6ad8ff;font-family:'Black Han Sans'}
+.ds-retro{font-family:'Press Start 2P';font-size:18px;color:#7aff5a;-webkit-text-stroke:0;text-shadow:3px 3px 0 #0a3a00}.ds-retro.crit{font-size:26px;color:#ffe85a;text-shadow:3px 3px 0 #6a3a00}
+.ds-candy{color:#ff9ad8;-webkit-text-stroke:2px #fff;text-shadow:0 3px 0 #c03a8a,0 0 10px #ffc0ea;font-family:'Jua'}
+.ds-thunder{color:#fff;-webkit-text-stroke:1.5px #2a4aff;text-shadow:0 0 6px #9fd4ff,0 0 16px #4a7aff;font-family:'Black Han Sans';font-style:italic}
+.ds-belt{color:#fff;-webkit-text-stroke:2px #000;text-shadow:0 4px 0 #000;font-family:'Black Han Sans'}.ds-belt.crit{color:#ff3d3d}
+.ds-gold{font-family:'Black Han Sans';background:linear-gradient(#fff6c0,#ffcf3a 45%,#b87a00 55%,#ffe27a);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1px #5a3a00;filter:drop-shadow(0 2px 0 #3a2400) drop-shadow(0 0 6px #ffcf3a)}
+.ds-cyber{font-family:'Orbitron';font-weight:900;color:#0ff;-webkit-text-stroke:0;text-shadow:2px 0 #f0f,-2px 0 #0ff,0 0 12px #0ff}
+.ds-star{color:#fff;-webkit-text-stroke:1px #4a2a8a;text-shadow:0 0 6px #fff,0 0 14px #b38aff,0 0 26px #6a3aff;font-family:'Black Han Sans'}
+.ds-blood{color:#ff2a3a;-webkit-text-stroke:1.5px #2a0006;text-shadow:0 0 10px #a00010,0 4px 0 #300;font-family:'Black Han Sans'}
+.ds-rainbow{font-family:'Black Han Sans';background:linear-gradient(90deg,#ff4a4a,#ffb34a,#fff04a,#5aff7a,#4ad0ff,#8a6aff,#ff6ad8);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1px rgba(0,0,0,.6);filter:drop-shadow(0 2px 0 #000)}
+.ds-dragon{font-family:'Black Han Sans';background:linear-gradient(#fff,#5ff7e0 40%,#0a8a7a);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1px #013a33;filter:drop-shadow(0 0 6px #5ff7e0) drop-shadow(0 3px 0 #002a24)}
+.dsprev{font-size:34px;padding:16px;text-align:center;background:#0f131a;border-radius:12px;position:relative}
+.dsprev .dmg{position:static;transform:none;display:inline-block;animation:none}
+@media (max-width:600px){#hudC{top:calc(max(10px,env(safe-area-inset-top)) + 84px);width:92vw}#waveT{font-size:16px}#hudL{width:44vw}#joy{width:112px;height:112px;left:12px}#joy i{width:46px;height:46px;margin:-23px}#pad{grid-template-columns:repeat(4,50px);gap:6px;right:8px}.sk{width:50px;height:50px}.sk .nm{font-size:10px}.sk em{font-size:17px}#movename{font-size:26px}#topR{max-width:62vw}#topR button{padding:6px 8px;font-size:13px}#maker{width:100vw;top:auto;height:62vh;border-left:0;border-top:1px solid var(--line);transform:translateY(105%)}#maker.open{transform:none}.cmp{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hud" id="hudL"><div class="hp"><i id="hpB"></i><span id="hpT">100/100</span></div>
+  <div class="stats"><span>⚔ <b id="sAtk">5</b></span><span>🦶 <b id="sKick">10</b></span><span>🛡 <b id="sDef">0</b></span><span>🪙 <b id="coinT">0</b></span></div></div>
+<div class="hud" id="hudC"><div id="waveT">정도 게임 메이커</div><div id="killT"></div>
+  <div id="bossbar" hidden><div id="bossName"></div><div class="hp"><i id="bossHp"></i></div></div></div>
+<div id="topR"><button id="bPlay">⚔ 모험</button><button id="bTrain">🎯 연습장</button><button id="bBag">🎒 가방</button><button id="bMaker">🛠 메이커</button><button id="bSnd">🔊</button></div>
+<div id="movename"></div><div id="toast"></div>
+<div id="joy"><i></i></div>
+<div id="keys">이동 WASD · J 발차기 · K 무기 · L 활 · U I O P 스킬 · Space 구르기 · Shift 방패</div>
+<div id="pad"></div>
+
+<div class="modal" id="start"><div class="box">
+  <h1>정도 게임 메이커</h1>
+  <p class="note">용인대 정도 태권도 2관 · 태권도 발차기, 트릭킹, 무기로 끝없는 랜덤 스테이지를 깨요.<br>스킬·모션·아이템은 🛠 메이커에서 직접 만들 수 있어요.</p>
+  <button class="pri big" id="sNew">⚔ 모험 시작 (스테이지 1)</button>
+  <button class="big" id="sCont" hidden></button>
+  <button class="big blue" id="sTrain">🎯 연습장 (허수아비·몬스터 때려보기)</button>
+  <button class="big" id="sMaker">🛠 게임 메이커 열기</button>
+  <div class="credit">모션: CMU Graphics Lab Motion Capture Database · Bandai Namco Research Motion Dataset (CC BY-NC 4.0)<br>그림: VoxeLibre / Pixel Perfection (CC BY-SA 4.0) · mcl_skins (CC BY-SA) · 3D Armor (CC BY-SA 3.0) · Ninja Adventure (CC0) · Kenney Particle Pack (CC0)<br>이펙트: pixelfx (MIT) · 모션 인식: Google MediaPipe Pose (Apache-2.0) · 3D: three.js (MIT)</div>
+</div></div>
+<div class="modal" id="mOver" hidden><div class="box" style="text-align:center"><h2 style="justify-content:center">쓰러졌어요</h2><p id="overT"></p>
+  <div class="btns" style="justify-content:center"><button class="pri" id="oRetry">이 스테이지 다시</button><button id="oFirst">스테이지 1부터</button><button id="oTrain">연습장</button></div></div></div>
+<div class="modal" id="mOffer" hidden><div class="box" id="offerBox"></div></div>
+<div class="modal" id="mBag" hidden><div class="box" id="bagBox" style="width:min(640px,100%)"></div></div>
+<div class="modal" id="mPw" hidden><div class="box" style="width:min(360px,100%)"><h2>🔐 운영자 비밀번호</h2><p class="note">메이커와 운영자 기능은 비밀번호를 넣어야 열려요.</p>
+  <input id="pwIn" type="password" style="width:100%" autocomplete="off"><div class="btns"><button id="pwNo">취소</button><button class="pri" id="pwOk">확인</button></div></div></div>
+<div class="modal" id="mEx" hidden><div class="box" style="width:min(400px,100%)"><h2>🎥 영상에서 동작 읽는 중</h2><div class="prog"><i id="exBar"></i></div><p class="note" id="exTxt"></p><div class="btns"><button id="exStop">그만</button></div></div></div>
+
+<aside id="maker"><header>🛠 게임 메이커 <button id="mkClose">✕</button></header><nav id="tabs"></nav><div id="tab"></div></aside>
+<input type="file" id="fVideo" accept="video/*" hidden><input type="file" id="fPhoto" accept="image/*" hidden><input type="file" id="fSkin" accept="image/png" hidden><input type="file" id="fJson" accept=".json,application/json" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="pixelfx.js"></script>
+<script src="engine.js"></script>
+<script src="data.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>

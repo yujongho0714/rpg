@@ -1,0 +1,18 @@
+정도 게임 메이커 — 사용한 자료와 라이선스
+
+[모션]
+- CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu) — 무료 사용 허용
+- Bandai Namco Research Motion Dataset — CC BY-NC 4.0 (비상업 용도)
+
+[그림]
+- VoxeLibre 텍스처 (Pixel Perfection 기반) — CC BY-SA 4.0
+- mcl_skins (VoxeLibre) — CC BY-SA
+- 3D Armor (Minetest) — CC BY-SA 3.0
+- Ninja Adventure (Pixel-Boy, AAA) 무기·효과음·배경음 — CC0
+- Kenney Particle Pack — CC0
+- us/ 폴더 스킨 — 운영자가 직접 올린 스킨
+
+[코드]
+- pixelfx 이펙트 244개 — MIT
+- Google MediaPipe Pose — Apache-2.0
+- three.js — MIT
