@@ -16,3 +16,6 @@
 - pixelfx 이펙트 244개 — MIT
 - Google MediaPipe Pose — Apache-2.0
 - three.js — MIT
+
+[변신 유닛]
+- du/ 폴더 유닛 그림·모션 695개 — OpenDuelyst (github.com/open-duelyst/duelyst), Counterplay Games 공개, CC0 1.0

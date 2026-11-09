@@ -35,7 +35,7 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
     $$('#pad').forEach(()=>{});}})();
 // 폰에서 메이커가 열려 있을 때 게임 화면을 누르면 닫기
 $('#game').addEventListener('pointerdown',()=>{if(innerWidth<=600)$('#maker').classList.remove('open');});
-function inputDir(){let x=joy.x,z=joy.z;if(keys.a||keys.ArrowLeft||keys['ㅁ'])x-=1;if(keys.d||keys.ArrowRight||keys['ㅇ'])x+=1;if(keys.w||keys.ArrowUp||keys['ㅈ'])z-=1;if(keys.s||keys.ArrowDown||keys['ㄴ'])z+=1;const l=Math.hypot(x,z);return l>.15?{x:x/Math.max(1,l),z:z/Math.max(1,l),l:Math.min(1,l)}:null;}
+function inputDir(){let x=joy.x,z=joy.z;if(keys.a||keys.ArrowLeft||keys['ㅁ'])x-=1;if(keys.d||keys.ArrowRight||keys['ㅇ'])x+=1;if(keys.w||keys.ArrowUp||keys['ㅈ'])z-=1;if(keys.s||keys.ArrowDown||keys['ㄴ'])z+=1;const l=Math.hypot(x,z);if(l>.15)return{x:x/Math.max(1,l),z:z/Math.max(1,l),l:Math.min(1,l)};if(AUTO.on&&AUTO.dir){const q=Math.hypot(AUTO.dir.x,AUTO.dir.z);if(q>.2)return{x:AUTO.dir.x/q,z:AUTO.dir.z/q,l:1};}return null;}
 function nextJ(){const list=S.combo.filter(id=>SK[id]);return list.length?list[P.combo%list.length]:'ap';}
 function nextK(){const w=S.eq.weapon;if(!w)return['jireugi','bn_punch1'][P.wcombo%2];if(w.wc==='gun')return null;const l=WCOMBO[w.wc]||WCOMBO.sword;return l[P.wcombo%l.length];}
 function press(a){if(paused||P.dead||MODE==='idle')return;
@@ -45,10 +45,12 @@ function press(a){if(paused||P.dead||MODE==='idle')return;
   else if(a==='L')fireBow();
   else if(a==='SP'){const d=inputDir();if(useSkill('_roll','SP')&&d)P.face=Math.atan2(d.x,d.z);}
   else if(a==='SH'){P.blockT=.6;}
+  else if(a==='AU'){AUTO.on=!AUTO.on;toast(AUTO.on?'🤖 자동 사냥 켜짐':'자동 사냥 꺼짐',900);buildPad();}
+  else if(a==='PO'){if(!S.eq.poly)return;S.polyOn=!S.polyOn;saveAll();applyPoly();toast(S.polyOn?'🎭 변신!':'변신을 풀었어요',900);}
   else{const i='UIOP'.indexOf(a);const id=S.slots[i];if(!id){toast('비어 있는 슬롯이에요. 🎒 가방에서 스킬을 넣어요',1300);return;}if(!owns(id)){toast('아직 없는 스킬이에요',1000);return;}useSkill(id,a);}}
 function buildPad(){const pad=$('#pad');const B=(k,lab,em,nm)=>`<div class="sk" data-k="${k}"><b>${lab}</b><em>${em}</em><span class="nm">${esc(nm||'')}</span><i class="cd"></i></div>`;
   const s=i=>{const sk=SK[S.slots[i]];return sk?sk.name:'비어 있음';};const ic=i=>{const sk=SK[S.slots[i]];return sk?(CAT[sk.cat]||['✨'])[0]:'·';};
-  pad.innerHTML=B('U','U',ic(0),s(0))+B('I','I',ic(1),s(1))+B('O','O',ic(2),s(2))+B('P','P',ic(3),s(3))+B('J','J','🦶','발차기')+B('K','K',S.eq.weapon?(S.eq.weapon.wc==='gun'?'🔫':'⚔'):'👊',S.eq.weapon?S.eq.weapon.name:'지르기')+B('L','L','🏹',S.eq.bow?BOWTYPES[S.eq.bow.shot][0]:'활 없음')+B('SP','Space','💨','구르기')+(S.eq.shield?B('SH','Shift','🛡','막기'):'');
+  pad.innerHTML=B('U','U',ic(0),s(0))+B('I','I',ic(1),s(1))+B('O','O',ic(2),s(2))+B('P','P',ic(3),s(3))+B('J','J','🦶','발차기')+B('K','K',S.eq.weapon?(S.eq.weapon.wc==='gun'?'🔫':'⚔'):'👊',S.eq.weapon?S.eq.weapon.name:'지르기')+B('L','L','🏹',S.eq.bow?BOWTYPES[S.eq.bow.shot][0]:'활 없음')+B('SP','Space','💨','구르기')+(S.eq.shield?B('SH','Shift','🛡','막기'):'')+B('AU','자동',AUTO.on?'🤖':'🤖',AUTO.on?'자동 ON':'자동 사냥')+(S.eq.poly?B('PO','변신','🎭',S.polyOn?'변신 풀기':'변신'):'');
   pad.querySelectorAll('.sk').forEach(el=>{if(!window.PointerEvent)el.addEventListener('touchstart',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}press(k);},{passive:false});el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}press(k);});
     el.addEventListener('pointerup',()=>{if(el.dataset.k==='SH')keys.Shift=false;});el.addEventListener('pointerleave',()=>{if(el.dataset.k==='SH')keys.Shift=false;});});}
 function padTick(){$$('#pad .sk').forEach(el=>{const k=el.dataset.k;let cd=0,max=1;
@@ -63,7 +65,7 @@ function playerTick(dt){P.inv=Math.max(0,P.inv-dt);for(const k in P.cd)P.cd[k]=M
   P.comboT-=dt;if(P.comboT<=0)P.combo=0;P.wcomboT-=dt;if(P.wcomboT<=0)P.wcombo=0;
   const armed=!!S.eq.weapon&&S.eq.weapon.wc!=='gun';P.blocking=!!(keys.Shift&&S.eq.shield&&!P.act);
   if(P.act){updateAct(dt);}
-  else{const d=inputDir();if(d&&!P.dead){P.face=angLerp(P.face,Math.atan2(d.x,d.z),Math.min(1,dt*14));const sp=(P.blocking?2.2:5.4)*d.l;moveCircle(P.pos,d.x*sp*dt,d.z*sp*dt,.35);P.walk+=dt*11*d.l;}
+  else{const d=inputDir();if(d&&!P.dead){P.face=angLerp(P.face,Math.atan2(d.x,d.z),Math.min(1,dt*14));const sp=(P.blocking?2.2:5.4)*d.l*polySpeed();moveCircle(P.pos,d.x*sp*dt,d.z*sp*dt,.35);P.walk+=dt*11*d.l;}
     let p=d?walkPose(P.walk,armed):Object.assign({},armed?GW:G);if(!d){const b=Math.sin(performance.now()/500)*.04;p.torso=[b,p.torso[1],0];}
     if(P.blocking)p=Object.assign({},p,{uaL:[-1.5,0,-.4],laL:[-.3,0,0]});
     if(P.dead)p=Object.assign({},G,{hips:[-1.5,0,0]});pose(P.rig,p,P.dead?-.6:0);}
@@ -101,14 +103,14 @@ function skillCard(sk,title){if(!sk)return`<div class="card"><div class="lab">${
     <div class="diff">위력 <b>${Math.round(skillPower(sk)*100)}</b> · 타격 ${(sk.hits||[]).length||1}번</div><div class="diff">재사용 ${sk.cd||0}초 · 범위 ${skillRange(sk).toFixed(1)}칸</div><div class="diff lab">${shapes}${sk.inv?' · 동작 중 무적':''}${sk.dash?' · 돌진':''}</div></div>`;}
 function diffLine(lab,a,b,unit='',lowerBetter){if(a==null&&b==null)return'';a=a||0;b=b||0;const d=Math.round((b-a)*10)/10;const good=lowerBetter?d<0:d>0;
   return`<div class="diff">${lab}: ${Math.round(a*10)/10}${unit} → <b>${Math.round(b*10)/10}${unit}</b> <span class="${d===0?'same':good?'up':'dn'}">${d===0?'같음':(d>0?'+':'')+d+unit}</span></div>`;}
-function itemIcon(it,cls='ico'){if(!it)return'';if(it.slot==='dskin'){const d=DSKINS.find(x=>x.id===it.k)||DSKINS[0];return`<span class="dmg ${d.cls}" style="position:static;transform:none;animation:none;font-size:20px">${d.pre||''}77</span>`;}
+function itemIcon(it,cls='ico'){if(!it)return'';if(it.slot==='poly'){const U=DU&&DU._cache&&DU._cache[it.u];return U?`<div style="width:48px;height:48px;display:inline-block;vertical-align:middle;${thumbStyle(U)}"></div>`:'🎭';}if(it.slot==='dskin'){const d=DSKINS.find(x=>x.id===it.k)||DSKINS[0];return`<span class="dmg ${d.cls}" style="position:static;transform:none;animation:none;font-size:20px">${d.pre||''}77</span>`;}
   return`<img class="${cls}" src="${esc(it.img||srcOf(it.icon))}" alt="">`;}
 function itemStats(it){if(!it)return'<div class="same">없음</div>';const L=[];if(it.atk)L.push((it.slot==='bow'?'활 공격력 ':'공격력 ')+it.atk);if(it.def)L.push('방어력 '+it.def);if(it.kick)L.push('발차기 +'+it.kick);if(it.reach)L.push('사거리 '+it.reach);
-  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);return L.map(x=>`<div class="diff">${x}</div>`).join('');}
+  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);if(it.slot==='poly'){L.push('공격력 +'+it.patk+'%','공격 속도 ×'+it.aspd,'이동 속도 ×'+it.mspd,'체력 +'+it.php);const U=DU&&DU._cache&&DU._cache[it.u];if(U)L.push('진영: '+FACTION[U.f]);}return L.map(x=>`<div class="diff">${x}</div>`).join('');}
 function itemCard(it,title){if(!it)return`<div class="card"><div class="lab">${title}</div><h3 class="same">없음</h3></div>`;return`<div class="card" style="border-color:${RAR[it.rar].col}"><div class="lab">${title}</div><div class="row" style="margin:0">${itemIcon(it)}<div><h3>${esc(it.name)}</h3>${rarTag(it.rar)}</div></div>${itemStats(it)}</div>`;}
 function slotOf(it){return it.slot;}
 function equip(it,fromBag){const s=slotOf(it);const old=S.eq[s];if(fromBag){const i=S.bag.findIndex(x=>x.id===it.id);if(i>=0)S.bag.splice(i,1);}
-  if(old)S.bag.push(old);S.eq[s]=it;if(s==='dskin'){toast('데미지 스킨 장착: '+it.name,1200);}else refreshGear().then(buildPad);saveAll();buildPad();}
+  if(old)S.bag.push(old);S.eq[s]=it;if(s==='poly'){S.polyOn=true;applyPoly();}if(s==='dskin'){toast('데미지 스킨 장착: '+it.name,1200);}else refreshGear().then(buildPad);saveAll();buildPad();}
 function offer(th,fromBag){const box=$('#offerBox');openModal('#mOffer');sfx('Bonus',.4);
   const close=()=>{closeModal('#mOffer');};
   if(th.kind==='skill'){const sk=SK[th.id];if(!sk){close();return;}const isNew=!S.owned.includes(sk.id);if(isNew)S.owned.push(sk.id);saveAll();
@@ -129,6 +131,7 @@ function offer(th,fromBag){const box=$('#offerBox');openModal('#mOffer');sfx('Bo
   else{const st0=stats();
     let diffs='';if(s==='weapon'){diffs+=diffLine('공격력',cur?cur.atk:5,it.atk);diffs+=diffLine('사거리',cur?cur.reach:1.9,it.reach,'칸');if(cur&&cur.wc!==it.wc)diffs+=`<div class="diff">무기 종류: ${WCLASS[cur.wc]} → <b>${WCLASS[it.wc]}</b> <span class="lab">(K 공격과 무기 스킬이 바뀌어요)</span></div>`;}
     else if(s==='bow')diffs+=diffLine('활 공격력',cur?cur.atk:0,it.atk);
+    else if(s==='poly'){diffs+=diffLine('공격력 보너스',cur?cur.patk:0,it.patk,'%');diffs+=diffLine('공격 속도',cur?cur.aspd:1,it.aspd,'배');diffs+=diffLine('이동 속도',cur?cur.mspd:1,it.mspd,'배');diffs+=diffLine('체력',cur?cur.php:0,it.php);}
     else{diffs+=diffLine('방어력',cur?cur.def:0,it.def);if(s==='boots')diffs+=diffLine('발차기',cur?cur.kick:0,it.kick);diffs+=diffLine('최대 체력',st0.max,st0.max+((it.def||0)-(cur?cur.def||0:0))*4);}
     if((cur&&cur.elem)!==it.elem)diffs+=`<div class="diff">속성: ${cur&&cur.elem?ELEM[cur.elem][0]:'없음'} → <b>${it.elem?ELEM[it.elem][0]:'없음'}</b></div>`;
     box.innerHTML=`<h2>${fromBag?'🎒':'✨'} ${SLOT_KO[s]} ${fromBag?'':'획득!'}<button class="x" data-x>✕</button></h2><div class="cmp">${itemCard(cur,'지금 장착 중')}${itemCard(it,fromBag?'가방':'새로 얻은 것')}</div>
@@ -140,7 +143,7 @@ function offer(th,fromBag){const box=$('#offerBox');openModal('#mOffer');sfx('Bo
     else if(b.dataset.sell!=null){if(fromBag){const i=S.bag.findIndex(x=>x.id===it.id);if(i>=0)S.bag.splice(i,1);}S.coins+=(RAR[it.rar].i+1)*3;$('#coinT').textContent=S.coins;saveAll();sfx('Coin',.3);close();if(fromBag)openBag();}
     else if(b.dataset.x!=null)close();};}
 function openBag(){const box=$('#bagBox');openModal('#mBag');
-  const eqSlots=['weapon','shield','bow','helmet','chestplate','leggings','boots','dskin'];
+  const eqSlots=['weapon','shield','bow','helmet','chestplate','leggings','boots','dskin','poly'];
   const eqH=eqSlots.map(s=>{const it=S.eq[s];return`<div class="it" data-eqs="${s}" style="${it?'border-color:'+RAR[it.rar].col:''}">${it?itemIcon(it):'<span class="same">·</span>'}<small>${it?esc(it.name):SLOT_KO[s]}</small></div>`;}).join('');
   const bagH=S.bag.map((it,i)=>`<div class="it" data-bi="${i}" style="border-color:${RAR[it.rar].col}">${itemIcon(it)}<small>${esc(it.name)}</small></div>`).join('')||'<p class="note">가방이 비었어요. 몬스터를 쓰러뜨리면 장비가 떨어져요.</p>';
   const mine=Object.values(SK).filter(s=>s.id[0]!=='_'&&owns(s.id)).sort((a,b)=>RAR[b.rar].i-RAR[a.rar].i);
@@ -162,7 +165,7 @@ function openBag2(){$('#mBag').hidden=true;openBag();}
 let lastT=performance.now(),dpsT=0;
 function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(hitStop>0){hitStop-=dt;dt*=.06;}
-  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else playerTick(dt);
+  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else{autoTick(dt);playerTick(dt);polyTick(dt);}
     for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.spd0==null)m.spd0=m.spd;if(MODE==='train'&&TR.passive&&!m.dummy){m.cd=Math.max(m.cd,1);m.wind=0;m.charging=0;m.spd=0;}else m.spd=m.spd0;
       mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
     projTick(dt);pickupTick(dt);stageTick(dt);}
@@ -186,13 +189,13 @@ let BGM=null;function bgm(){if(BGM||!sndOn)return;BGM=new Audio('a/s/bgm.ogg');B
 addEventListener('pointerdown',bgm,{once:true});addEventListener('keydown',bgm,{once:true});
 
 /* ================= 메이커 ================= */
-const TABS=[['train','🎯 연습장'],['skill','📜 스킬'],['motion','🎥 모션'],['item','🗡 아이템'],['mob','👾 몬스터·스킨'],['stage','🗺 스테이지'],['op','👑 운영자'],['save','💾 저장']];
+const TABS=[['train','🎯 연습장'],['skill','📜 스킬'],['motion','🎥 모션'],['item','🗡 아이템'],['mob','👾 몬스터·스킨'],['stage','🗺 스테이지'],['poly','🎭 변신'],['op','👑 운영자'],['save','💾 저장']];
 let curTab='train';
 function openMaker(t){$('#maker').classList.add('open');if(t)curTab=t;renderTabs();renderTab();}
 $('#mkClose').onclick=()=>$('#maker').classList.remove('open');
 function renderTabs(){$('#tabs').innerHTML=TABS.map(([k,n])=>`<button data-t="${k}" class="${k===curTab?'on':''}">${n}</button>`).join('');}
 $('#tabs').onclick=e=>{const b=e.target.closest('[data-t]');if(!b)return;curTab=b.dataset.t;renderTabs();renderTab();};
-function renderTab(){const f={train:tabTrain,skill:tabSkill,motion:tabMotion,item:tabItem,mob:tabMob,stage:tabStage,op:tabOp,save:tabSave}[curTab];$('#tab').innerHTML='';const d=document.createElement('div');$('#tab').appendChild(d);f(d);}
+function renderTab(){const f={train:tabTrain,skill:tabSkill,motion:tabMotion,item:tabItem,mob:tabMob,stage:tabStage,poly:tabPoly,op:tabOp,save:tabSave}[curTab];$('#tab').innerHTML='';const d=document.createElement('div');$('#tab').appendChild(d);f(d);}
 const allMobIds=()=>[...MOBS.filter(m=>m.id!=='dummy'),...BOSSES];
 function dirPos(dir,dist=3.2){const f=P.face;const fw=new V3(Math.sin(f),0,Math.cos(f)),lf=new V3(Math.cos(f),0,-Math.sin(f));const v={front:fw,back:fw.clone().negate(),left:lf,right:lf.clone().negate()}[dir];
   const p=P.pos.clone().addScaledVector(v,dist);const H=MAP.N/2-1.5;p.x=clamp(p.x,-H,H);p.z=clamp(p.z,-H,H);return p;}
@@ -477,7 +480,7 @@ $('#fSkin').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f
 function tabStage(el){const st=DB.stage;const num=(k,lab,step,min,max)=>`<label>${lab}</label><input data-st="${k}" type="number" step="${step}" min="${min}" max="${max}" value="${st[k]}">`;
   el.innerHTML=`<p class="note">스테이지는 매번 랜덤 지도로 만들어지고 끝없이 이어져요. 여기서 규칙을 정해요.</p>
   <h4>나오는 테마</h4><div class="row">${Object.keys(THEMES).map(k=>`<label style="white-space:nowrap"><input type="checkbox" class="stT" value="${k}" ${st.themes.includes(k)?'checked':''}> ${THEMES[k].name}</label>`).join('')}</div>
-  <div class="f">${num('waves','웨이브 수',1,1,10)}${num('perWave','웨이브당 몬스터',1,1,30)}${num('grow','스테이지마다 증가',1,0,10)}${num('bossEvery','보스 간격',1,1,20)}${num('hpGrow','체력 증가율',.02,0,2)}${num('dropEquip','장비 드랍 확률',.01,0,1)}${num('dropSkill','스킬북 드랍',.01,0,1)}${num('dropDskin','데미지 스킨 드랍',.01,0,1)}</div>
+  <div class="f">${num('waves','웨이브 수',1,1,10)}${num('perWave','웨이브당 몬스터',1,1,30)}${num('grow','스테이지마다 증가',1,0,10)}${num('bossEvery','보스 간격',1,1,20)}${num('hpGrow','체력 증가율',.02,0,2)}${num('dropEquip','장비 드랍 확률',.01,0,1)}${num('dropSkill','스킬북 드랍',.01,0,1)}${num('dropDskin','데미지 스킨 드랍',.01,0,1)}${num('dropPoly','변신 카드 드랍',.01,0,1)}</div>
   <p class="note">보스 간격이 5면 5·10·15… 스테이지 마지막 웨이브에 보스가 나와요. 확률은 0~1 (0.3 = 30%).</p>
   <div class="row"><button class="pri" id="stGo">이 규칙으로 스테이지 1부터</button><button id="stNext">다음 스테이지 바로 가기</button><button id="stDef">처음 값으로</button></div>`;
   el.querySelectorAll('.stT').forEach(c=>c.onchange=()=>{st.themes=[...el.querySelectorAll('.stT:checked')].map(x=>x.value);saveAll();});
@@ -530,6 +533,8 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)retur
   ARROWIMG=await load('a/wp/Arrow.png').catch(()=>null);
   if(!S.eq.weapon){S.eq.weapon=makeItem('weapon',1,'N');S.eq.bow=makeItem('bow',0,'N');}
   if(!S.owned.length)S.owned=[...new Set([...S.slots,...S.combo].filter(Boolean))];
-  await buildMap('forest',{empty:true,size:24});await buildPlayer();buildPad();$('#coinT').textContent=S.coins;
+  if(!S.v2){if(!DB.stage.themes.includes('duel'))DB.stage.themes.push('duel');S.v2=1;}DEF_STAGE.themes=Object.keys(THEMES);if(DB.stage.dropPoly==null)DB.stage.dropPoly=.04;DEF_STAGE.dropPoly=.04;
+  duReady().then(U=>{DU._cache=U;}).catch(()=>{});
+  await buildMap('forest',{empty:true,size:24});await buildPlayer();if(S.polyOn&&S.eq.poly)applyPoly();buildPad();$('#coinT').textContent=S.coins;
   if(S.best>1){$('#sCont').hidden=false;$('#sCont').textContent='▶ 이어하기 (스테이지 '+S.best+')';}
   $('#waveT').textContent='정도 게임 메이커';requestAnimationFrame(loop);})();
