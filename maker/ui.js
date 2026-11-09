@@ -27,7 +27,14 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 (function(){const J=$('#joy'),K=J.querySelector('i');let id=null,cx=0,cy=0;
   J.addEventListener('pointerdown',e=>{id=e.pointerId;J.setPointerCapture(id);const r=J.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;mv(e);});
   const mv=e=>{if(e.pointerId!==id)return;let dx=e.clientX-cx,dy=e.clientY-cy;const l=Math.hypot(dx,dy),m=50;if(l>m){dx*=m/l;dy*=m/l;}K.style.transform=`translate(${dx}px,${dy}px)`;joy.x=dx/m;joy.z=dy/m;};
-  J.addEventListener('pointermove',mv);const up=e=>{if(e.pointerId!==id)return;id=null;joy.x=joy.z=0;K.style.transform='';};J.addEventListener('pointerup',up);J.addEventListener('pointercancel',up);})();
+  J.addEventListener('pointermove',mv);const up=e=>{if(e.pointerId!==id)return;id=null;joy.x=joy.z=0;K.style.transform='';};J.addEventListener('pointerup',up);J.addEventListener('pointercancel',up);
+  // 예전 폰(포인터 이벤트 없음)은 터치 이벤트로
+  if(!window.PointerEvent){const T=e=>{const t=e.changedTouches[0];return{pointerId:'t',clientX:t.clientX,clientY:t.clientY};};
+    J.addEventListener('touchstart',e=>{e.preventDefault();id='t';const r=J.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;mv(T(e));},{passive:false});
+    J.addEventListener('touchmove',e=>{e.preventDefault();mv(T(e));},{passive:false});J.addEventListener('touchend',e=>up({pointerId:'t'}));J.addEventListener('touchcancel',e=>up({pointerId:'t'}));
+    $$('#pad').forEach(()=>{});}})();
+// 폰에서 메이커가 열려 있을 때 게임 화면을 누르면 닫기
+$('#game').addEventListener('pointerdown',()=>{if(innerWidth<=600)$('#maker').classList.remove('open');});
 function inputDir(){let x=joy.x,z=joy.z;if(keys.a||keys.ArrowLeft||keys['ㅁ'])x-=1;if(keys.d||keys.ArrowRight||keys['ㅇ'])x+=1;if(keys.w||keys.ArrowUp||keys['ㅈ'])z-=1;if(keys.s||keys.ArrowDown||keys['ㄴ'])z+=1;const l=Math.hypot(x,z);return l>.15?{x:x/Math.max(1,l),z:z/Math.max(1,l),l:Math.min(1,l)}:null;}
 function nextJ(){const list=S.combo.filter(id=>SK[id]);return list.length?list[P.combo%list.length]:'ap';}
 function nextK(){const w=S.eq.weapon;if(!w)return['jireugi','bn_punch1'][P.wcombo%2];if(w.wc==='gun')return null;const l=WCOMBO[w.wc]||WCOMBO.sword;return l[P.wcombo%l.length];}
@@ -42,7 +49,7 @@ function press(a){if(paused||P.dead||MODE==='idle')return;
 function buildPad(){const pad=$('#pad');const B=(k,lab,em,nm)=>`<div class="sk" data-k="${k}"><b>${lab}</b><em>${em}</em><span class="nm">${esc(nm||'')}</span><i class="cd"></i></div>`;
   const s=i=>{const sk=SK[S.slots[i]];return sk?sk.name:'비어 있음';};const ic=i=>{const sk=SK[S.slots[i]];return sk?(CAT[sk.cat]||['✨'])[0]:'·';};
   pad.innerHTML=B('U','U',ic(0),s(0))+B('I','I',ic(1),s(1))+B('O','O',ic(2),s(2))+B('P','P',ic(3),s(3))+B('J','J','🦶','발차기')+B('K','K',S.eq.weapon?(S.eq.weapon.wc==='gun'?'🔫':'⚔'):'👊',S.eq.weapon?S.eq.weapon.name:'지르기')+B('L','L','🏹',S.eq.bow?BOWTYPES[S.eq.bow.shot][0]:'활 없음')+B('SP','Space','💨','구르기')+(S.eq.shield?B('SH','Shift','🛡','막기'):'');
-  pad.querySelectorAll('.sk').forEach(el=>{el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}press(k);});
+  pad.querySelectorAll('.sk').forEach(el=>{if(!window.PointerEvent)el.addEventListener('touchstart',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}press(k);},{passive:false});el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}press(k);});
     el.addEventListener('pointerup',()=>{if(el.dataset.k==='SH')keys.Shift=false;});el.addEventListener('pointerleave',()=>{if(el.dataset.k==='SH')keys.Shift=false;});});}
 function padTick(){$$('#pad .sk').forEach(el=>{const k=el.dataset.k;let cd=0,max=1;
   if(k==='J'){const id=nextJ();cd=P.cd['J'+id]||0;max=(SK[id]||{}).cd||1;el.querySelector('.nm').textContent=(SK[id]||{}).name||'';}
