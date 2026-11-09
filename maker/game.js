@@ -52,7 +52,7 @@ async function composeSkin(k){const out=cnv(64,32),g=out.getContext('2d');g.imag
   if(k.hair)await L('hair_'+k.hair,k.hairC);if(k.headwear)await L('headwear_'+k.headwear);return out;}
 async function refreshSkin(){let img=null;if(S.mcskin)img=await load(S.mcskin).catch(()=>null);if(!img)img=await composeSkin(S.skin);skinRig(P.rig,img);}
 const HELD={};
-async function itemImg(it){if(it.img)return load(it.img);return load(it.icon);}
+async function itemImg(it){if(it.img)return load(it.img);if(!it.icon&&it.ic&&typeof ICO!=='undefined'&&ICO&&ICO[it.ic]){const a=await load('ic/icons.png');const i=ICO[it.ic][0];return crop(a,(i%40)*32,Math.floor(i/40)*32,32,32);}return load(it.icon);}
 async function refreshGear(){
   for(const s of ASLOTS){const it=S.eq[s];armorRig(P.rig,s,it?await load(it.tex).catch(()=>null):null);}
   ['w','b','s'].forEach(k=>{if(HELD[k]){HELD[k].parent.remove(HELD[k]);HELD[k]=null;}});
@@ -70,7 +70,7 @@ function updHP(){$('#hpT').textContent=Math.ceil(P.hp)+'/'+P.max;$('#hpB').style
 /* ================= 데미지 숫자 (데미지 스킨) ================= */
 const floaters=[];
 function dmgText(pos,v,kind){if(floaters.length>45)return;const ds=DSKINS.find(d=>d.id===(S.eq.dskin&&S.eq.dskin.k))||DSKINS[0];const e=document.createElement('div');
-  const hurt=kind==='hurt',dot=['burn','poison','bleed','shock'].includes(kind);e.className='dmg '+(hurt?'ds-hurt':dot?'ds-dot ds-'+kind:ds.cls)+(kind==='crit'?' crit':kind==='big'?' big':kind==='burst'?' crit':'');
+  const hurt=kind==='hurt',dot=['burn','poison','bleed','shock'].includes(kind);e.className='dmg '+(kind==='heal'?'ds-heal ':'')+(hurt?'ds-hurt':dot?'ds-dot ds-'+kind:ds.cls)+(kind==='crit'?' crit':kind==='big'?' big':kind==='burst'?' crit':'');
   e.textContent=(hurt||dot?'':(ds.pre||''))+v+(kind==='crit'?'!':'');document.body.appendChild(e);const p=pos.clone();p.y+=2.1+rnd(0,.4);p.x+=rnd(-.3,.3);floaters.push({el:e,p,t:0,life:kind==='crit'?1:.8});}
 function floatTick(dt){for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.t+=dt;const k=f.t/f.life;const p=f.p.clone();p.y+=k*1.2;p.project(cam);
   f.el.style.left=((p.x+1)/2*innerWidth)+'px';f.el.style.top=((1-p.y)/2*innerHeight)+'px';f.el.style.opacity=1-k*k;if(k>=1){f.el.remove();floaters.splice(i,1);}}}

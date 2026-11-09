@@ -19,3 +19,6 @@
 
 [변신 유닛]
 - du/ 폴더 유닛 그림·모션 695개 — OpenDuelyst (github.com/open-duelyst/duelyst), Counterplay Games 공개, CC0 1.0
+
+[아이콘]
+- ic/ 아이템·스킬 아이콘 1,262개 — rpg-icon-mega-pack (github.com/designclarity/rpg-icon-mega-pack), CC0 1.0

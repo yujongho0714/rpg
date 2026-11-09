@@ -103,11 +103,11 @@ function skillCard(sk,title){if(!sk)return`<div class="card"><div class="lab">${
     <div class="diff">위력 <b>${Math.round(skillPower(sk)*100)}</b> · 타격 ${(sk.hits||[]).length||1}번</div><div class="diff">재사용 ${sk.cd||0}초 · 범위 ${skillRange(sk).toFixed(1)}칸</div><div class="diff lab">${shapes}${sk.inv?' · 동작 중 무적':''}${sk.dash?' · 돌진':''}</div></div>`;}
 function diffLine(lab,a,b,unit='',lowerBetter){if(a==null&&b==null)return'';a=a||0;b=b||0;const d=Math.round((b-a)*10)/10;const good=lowerBetter?d<0:d>0;
   return`<div class="diff">${lab}: ${Math.round(a*10)/10}${unit} → <b>${Math.round(b*10)/10}${unit}</b> <span class="${d===0?'same':good?'up':'dn'}">${d===0?'같음':(d>0?'+':'')+d+unit}</span></div>`;}
-function itemIcon(it,cls='ico'){if(!it)return'';if(it.slot==='poly'){const U=DU&&DU._cache&&DU._cache[it.u];return U?`<div style="width:48px;height:48px;display:inline-block;vertical-align:middle;${thumbStyle(U)}"></div>`:'🎭';}if(it.slot==='dskin'){const d=DSKINS.find(x=>x.id===it.k)||DSKINS[0];return`<span class="dmg ${d.cls}" style="position:static;transform:none;animation:none;font-size:20px">${d.pre||''}77</span>`;}
+function itemIcon(it,cls='ico'){if(!it)return'';if(it.ic&&!it.img&&typeof ico==='function'){const sz=cls==='ico32'?32:44;return`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center">${ico(it.ic,sz)}</span>`;}if(it.slot==='poly'){const U=DU&&DU._cache&&DU._cache[it.u];return U?`<div style="width:48px;height:48px;display:inline-block;vertical-align:middle;${thumbStyle(U)}"></div>`:'🎭';}if(it.slot==='dskin'){const d=DSKINS.find(x=>x.id===it.k)||DSKINS[0];return`<span class="dmg ${d.cls}" style="position:static;transform:none;animation:none;font-size:20px">${d.pre||''}77</span>`;}
   return`<img class="${cls}" src="${esc(it.img||srcOf(it.icon))}" alt="">`;}
 function itemStats(it){if(!it)return'<div class="same">없음</div>';const L=[];if(it.atk)L.push((it.slot==='bow'?'활 공격력 ':'공격력 ')+it.atk);if(it.def)L.push('방어력 '+it.def);if(it.kick)L.push('발차기 +'+it.kick);if(it.reach)L.push('사거리 '+it.reach);
-  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);if(it.slot==='poly'){L.push('공격력 +'+it.patk+'%','공격 속도 ×'+it.aspd,'이동 속도 ×'+it.mspd,'체력 +'+it.php);const U=DU&&DU._cache&&DU._cache[it.u];if(U)L.push('진영: '+FACTION[U.f]);}return L.map(x=>`<div class="diff">${x}</div>`).join('');}
-function itemCard(it,title){if(!it)return`<div class="card"><div class="lab">${title}</div><h3 class="same">없음</h3></div>`;return`<div class="card" style="border-color:${RAR[it.rar].col}"><div class="lab">${title}</div><div class="row" style="margin:0">${itemIcon(it)}<div><h3>${esc(it.name)}</h3>${rarTag(it.rar)}</div></div>${itemStats(it)}</div>`;}
+  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);if(it.hp)L.push('최대 체력 +'+it.hp);if(it.mpx)L.push('최대 마나 +'+it.mpx);if(it.mreg)L.push('마나 회복 +'+it.mreg+'/초');if(it.dmg)L.push('추가 피해 +'+it.dmg);if(it.patk&&it.slot!=='poly')L.push('공격력 +'+it.patk+'%');if(it.en)L.push('강화 +'+it.en+(it.slot==='weapon'?' (공격력 +'+(it.en*2+(it.en>6?(it.en-6)*2:0))+')':' (방어 +'+it.en+')'));if(it.slot==='poly'){L.push('공격력 +'+it.patk+'%','공격 속도 ×'+it.aspd,'이동 속도 ×'+it.mspd,'체력 +'+it.php);const U=DU&&DU._cache&&DU._cache[it.u];if(U)L.push('진영: '+FACTION[U.f]);}return L.map(x=>`<div class="diff">${x}</div>`).join('');}
+function itemCard(it,title){if(!it)return`<div class="card"><div class="lab">${title}</div><h3 class="same">없음</h3></div>`;return`<div class="card" style="border-color:${RAR[it.rar].col}"><div class="lab">${title}</div><div class="row" style="margin:0">${itemIcon(it)}<div><h3>${esc(nm(it))}</h3>${rarTag(it.rar)}</div></div>${itemStats(it)}</div>`;}
 function slotOf(it){return it.slot;}
 function equip(it,fromBag){const s=slotOf(it);const old=S.eq[s];if(fromBag){const i=S.bag.findIndex(x=>x.id===it.id);if(i>=0)S.bag.splice(i,1);}
   if(old)S.bag.push(old);S.eq[s]=it;if(s==='poly'){S.polyOn=true;applyPoly();}if(s==='dskin'){toast('데미지 스킨 장착: '+it.name,1200);}else refreshGear().then(buildPad);saveAll();buildPad();}
@@ -144,8 +144,8 @@ function offer(th,fromBag){const box=$('#offerBox');openModal('#mOffer');sfx('Bo
     else if(b.dataset.x!=null)close();};}
 function openBag(){const box=$('#bagBox');openModal('#mBag');
   const eqSlots=['weapon','shield','bow','helmet','chestplate','leggings','boots','dskin','poly'];
-  const eqH=eqSlots.map(s=>{const it=S.eq[s];return`<div class="it" data-eqs="${s}" style="${it?'border-color:'+RAR[it.rar].col:''}">${it?itemIcon(it):'<span class="same">·</span>'}<small>${it?esc(it.name):SLOT_KO[s]}</small></div>`;}).join('');
-  const bagH=S.bag.map((it,i)=>`<div class="it" data-bi="${i}" style="border-color:${RAR[it.rar].col}">${itemIcon(it)}<small>${esc(it.name)}</small></div>`).join('')||'<p class="note">가방이 비었어요. 몬스터를 쓰러뜨리면 장비가 떨어져요.</p>';
+  const eqH=eqSlots.map(s=>{const it=S.eq[s];return`<div class="it" data-eqs="${s}" style="${it?'border-color:'+RAR[it.rar].col:''}">${it?itemIcon(it):'<span class="same">·</span>'}<small>${it?esc(nm(it)):SLOT_KO[s]}</small></div>`;}).join('');
+  const bagH=S.bag.map((it,i)=>`<div class="it" data-bi="${i}" style="border-color:${RAR[it.rar].col}">${itemIcon(it)}<small>${esc(nm(it))}</small></div>`).join('')||'<p class="note">가방이 비었어요. 몬스터를 쓰러뜨리면 장비가 떨어져요.</p>';
   const mine=Object.values(SK).filter(s=>s.id[0]!=='_'&&owns(s.id)).sort((a,b)=>RAR[b.rar].i-RAR[a.rar].i);
   const skH=mine.map(s=>`<div class="li" data-sk="${s.id}"><span class="dot" style="background:${RAR[s.rar].col}"></span>${(CAT[s.cat]||['✨'])[0]} ${esc(s.name)}<span class="r">${RAR[s.rar].name}${S.slots.includes(s.id)?' · '+'UIOP'[S.slots.indexOf(s.id)]:''}${S.combo.includes(s.id)?' · J':''}</span></div>`).join('');
   box.innerHTML=`<h2>🎒 가방 <span class="lab" style="font-family:Do Hyeon">🪙 ${S.coins}</span><button class="x" data-x>✕</button></h2>
@@ -165,7 +165,7 @@ function openBag2(){$('#mBag').hidden=true;openBag();}
 let lastT=performance.now(),dpsT=0;
 function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(hitStop>0){hitStop-=dt;dt*=.06;}
-  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else{autoTick(dt);playerTick(dt);polyTick(dt);}
+  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else{autoTick(dt);playerTick(dt);polyTick(dt);}if(window.linTick)linTick(dt);
     for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.spd0==null)m.spd0=m.spd;if(MODE==='train'&&TR.passive&&!m.dummy){m.cd=Math.max(m.cd,1);m.wind=0;m.charging=0;m.spd=0;}else m.spd=m.spd0;
       mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
     projTick(dt);pickupTick(dt);stageTick(dt);}
@@ -435,7 +435,7 @@ function tabItem(el){const made=Object.values(DB.items);
       <label>속성</label><select id="phEl"><option value="">없음</option>${Object.keys(ELEM).map(k=>`<option value="${k}">${ELEM[k][0]}</option>`).join('')}</select>
       <label>손에 든 크기</label><input id="phSz" type="range" min=".5" max="2.5" step=".1" value="1"></div>
     <div class="btns"><button class="pri" id="phMake">만들어서 장착 창 열기</button></div></div>
-  <h4>만든 아이템 ${made.length}개</h4><div class="grid">${made.map(it=>`<div class="it" data-gi="${it.id}" style="border-color:${RAR[it.rar].col}">${itemIcon(it)}<small>${esc(it.name)}</small></div>`).join('')||'<p class="note">아직 없어요.</p>'}</div>
+  <h4>만든 아이템 ${made.length}개</h4><div class="grid">${made.map(it=>`<div class="it" data-gi="${it.id}" style="border-color:${RAR[it.rar].col}">${itemIcon(it)}<small>${esc(nm(it))}</small></div>`).join('')||'<p class="note">아직 없어요.</p>'}</div>
   ${made.length?'<p class="note">누르면 하나 더 받아요. 길게 생각할 것 없이 가방에서 바꿔 끼면 돼요.</p>':''}`;
   const draw=()=>{const o=processPhoto();PH.out=o;const pc=el.querySelector('#phPrev'),g=pc.getContext('2d');g.clearRect(0,0,160,160);if(!o)return;g.imageSmoothingEnabled=false;const s=Math.floor(150/Math.max(o.width,o.height))||1;g.drawImage(o,(160-o.width*s)/2,(160-o.height*s)/2,o.width*s,o.height*s);};
   const typeUpd=()=>{const t=el.querySelector('#phT').value;el.querySelector('#phSL').textContent=t==='shield'?'방어력':t==='bow'?'활 공격력':'공격력';el.querySelector('#phShot').disabled=t!=='bow';el.querySelector('#phRe').disabled=!['sword','rapier','axe','blunt','spear','staff'].includes(t);};
@@ -535,6 +535,6 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)retur
   if(!S.owned.length)S.owned=[...new Set([...S.slots,...S.combo].filter(Boolean))];
   if(!S.v2){if(!DB.stage.themes.includes('duel'))DB.stage.themes.push('duel');S.v2=1;}DEF_STAGE.themes=Object.keys(THEMES);if(DB.stage.dropPoly==null)DB.stage.dropPoly=.04;DEF_STAGE.dropPoly=.04;
   duReady().then(U=>{DU._cache=U;}).catch(()=>{});
-  await buildMap('forest',{empty:true,size:24});await buildPlayer();if(S.polyOn&&S.eq.poly)applyPoly();buildPad();$('#coinT').textContent=S.coins;
+  await buildMap('forest',{empty:true,size:24});await buildPlayer();if(S.polyOn&&S.eq.poly)applyPoly();buildPad();$('#coinT').textContent=S.coins;if(window.linInit)linInit();
   if(S.best>1){$('#sCont').hidden=false;$('#sCont').textContent='▶ 이어하기 (스테이지 '+S.best+')';}
   $('#waveT').textContent='정도 게임 메이커';requestAnimationFrame(loop);})();
