@@ -48,7 +48,7 @@ a.back{color:var(--mu);font-size:13px;text-decoration:none}
 </div>
 <div id="msg"></div><div id="tip"></div>
 <div class="modal" id="mStart"><div class="box"><h1>정도 오토배틀</h1>
- <p class="note">유닛을 사서 판에 배치하면 자동으로 싸워요. 같은 유닛 3개를 모으면 ★2로 합쳐지고, 같은 진영을 모으면 시너지가 생겨요.<br>내 장군(마크 스킨)도 판에 같이 서서 돌려차기로 싸워요.</p>
+ <p class="note">유닛을 사면 판에 자동으로 올라가요. 유닛을 끌거나, 눌러서 고른 뒤 다른 칸을 누르면 자리를 바꿔요. 같은 유닛 3개를 모으면 ★2로 합쳐지고, 같은 진영을 모으면 시너지가 생겨요.<br>내 장군(마크 스킨)도 판에 같이 서서 돌려차기로 싸워요.</p>
  <div class="note">내 장군 스킨 고르기</div><div class="skins" id="skG"></div>
  <button class="go" id="bStart" style="width:100%;padding:12px">시작하기</button>
  <p class="note" id="bestT"></p>
@@ -76,12 +76,15 @@ function mkUnit(k,star=1){const u=U[k];const t=tierOf(k,u);const b=baseStats(k,u
 function heroUnit(){const L=G.lv;return{id:'hero',hero:true,k:'hero',t:3,star:1,f:'hero',name:'정도 장군',hp:900+G.round*60,atk:55+G.round*6,as:.85,range:1.1,armor:20,col:3,row:6};}
 function ensureHero(){if(!G.board.find(u=>u.hero))G.board.push(heroUnit());else{const h=G.board.find(u=>u.hero);const n=heroUnit();h.hp=n.hp;h.atk=n.atk;}}
 function boardCount(){return G.board.filter(u=>!u.hero).length;}
-function cap(){return G.lv;}
+function cap(){return G.lv+2;}
+function freeTile(u){const rows=u&&u.ranged?[7,6,5,4]:[4,5,6,7];const cols=[3,2,4,1,5,0,6];for(const r of rows)for(const c of cols)if(!G.board.some(b=>b.col===c&&b.row===r))return{c,r};return null;}
+function toBoard(u){if(!u||u.col>=0||boardCount()>=cap())return false;const t=freeTile(u);if(!t)return false;const bi=G.bench.indexOf(u);if(bi>=0)G.bench[bi]=null;u.col=t.c;u.row=t.r;G.board.push(u);return true;}
+function autoFill(){G.bench.filter(Boolean).sort((a,b)=>b.star-a.star||b.t-a.t).forEach(u=>toBoard(u));}
 function roll(free){if(!free){if(G.gold<2)return flash('골드가 부족해요');G.gold-=2;}const o=TIERODDS[G.lv];G.shop=[];for(let i=0;i<5;i++){let r=Math.random(),t=1,acc=0;for(let k=0;k<5;k++){acc+=o[k];if(r<acc){t=k+1;break;}}G.shop.push(pick(POOL[t]));}renderShop();updUI();}
 function buyXP(){if(G.gold<4||G.lv>=9)return;G.gold-=4;addXP(4);updUI();}
 function addXP(n){G.xp+=n;while(G.lv<9&&G.xp>=XPNEED[G.lv]){G.xp-=XPNEED[G.lv];G.lv++;flash('레벨 업! 판에 '+G.lv+'명까지');}}
 function buy(i){if(G.phase!=='prep')return;const k=G.shop[i];if(!k)return;const t=tierOf(k,U[k]);if(G.gold<t)return flash('골드가 부족해요');const slot=G.bench.indexOf(null);
-  if(slot<0&&!canMerge(k))return flash('대기석이 가득 찼어요');G.gold-=t;G.shop[i]=null;const u=mkUnit(k);if(slot>=0){G.bench[slot]=u;}else{G.bench.push(u);}merge();renderShop();updUI();collect(k);}
+  if(slot<0&&!canMerge(k))return flash('대기석이 가득 찼어요');G.gold-=t;G.shop[i]=null;const u=mkUnit(k);if(slot>=0){G.bench[slot]=u;}else{G.bench.push(u);}merge();if(G.bench.includes(u))toBoard(u);renderShop();updUI();collect(k);}
 function canMerge(k){return [...G.board,...G.bench].filter(u=>u&&u.k===k&&u.star===1).length>=2;}
 function merge(){let did=true;while(did){did=false;for(const star of [1,2]){const all=[...G.board.filter(u=>!u.hero),...G.bench.filter(Boolean)];const by={};all.forEach(u=>{if(u.star===star)(by[u.k]=by[u.k]||[]).push(u);});
   for(const k in by){if(by[k].length>=3){const three=by[k].slice(0,3);const keep=three.find(u=>u.col>=0)||three[0];const nu=mkUnit(k,star+1);nu.col=keep.col;nu.row=keep.row;
@@ -100,7 +103,7 @@ function enemyTeam(r){const boss=r%5===0;const n=Math.min(2+Math.floor(r*.7),10)
   let i=0;for(const u of out){const row=u.ranged?Math.floor(i/7)%2:3-Math.floor(i/7)%2;let col=mid[i%7];u.col=col;u.row=u.ranged?0+(i>6?1:0):3-(i>6?1:0);i++;}
   return out;}
 /* ---------- 전투 ---------- */
-function startFight(){if(G.phase!=='prep')return;if(boardCount()===0&&!confirm('판에 유닛이 없어요. 장군 혼자 싸울까요?'))return;G.phase='fight';sel=null;
+function startFight(){if(G.phase!=='prep')return;autoFill();if(boardCount()===0&&!confirm('판에 유닛이 없어요. 장군 혼자 싸울까요?'))return;G.phase='fight';sel=null;
   const mine=G.board.map(u=>fighter(u,0)),foe=enemyTeam(G.round).map(u=>fighter(u,1));G.fight={a:[...mine,...foe],fx:[],nums:[],t:0,end:0,proj:[]};
   applySyn(mine,synergies(G.board));applySyn(foe,synergies(foe));updUI();renderShop();flash(G.round%5===0?'⚠ 보스 라운드':'라운드 '+G.round);}
 function fighter(u,side){const f=Object.assign({},u);f.side=side;f.x=u.col+.5;f.y=(side===0?u.row:u.row)+.5;f.max=f.hp;f.mana=0;f.cd=rnd(.1,.6);f.anim='idle';f.af=0;f.at=0;f.flash=0;f.stun=0;f.slow=0;f.ls=0;f.crit=0;f.dmgMul=1;f.flip=side===1;f.src=u;return f;}
@@ -189,12 +192,15 @@ function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/
 function at(px,py){if(py>=BENCHY&&py<=BENCHY+TS){const i=Math.floor((px-OX)/(TS*COLS/8));if(i>=0&&i<8)return{bench:i};}const c=Math.floor((px-OX)/TS),r=Math.floor((py-OY)/TS);if(c>=0&&c<COLS&&r>=4&&r<ROWS)return{c,r};return null;}
 function unitAt(s){if(!s)return null;if(s.bench!=null)return G.bench[s.bench];return G.board.find(u=>u.col===s.c&&u.row===s.r)||null;}
 cv.addEventListener('pointerdown',e=>{if(!G||G.phase!=='prep')return;const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;const s=at(px,py);const u=unitAt(s);
-  if(u){drag={u,from:s,x:px,y:py,moved:false};cv.setPointerCapture(e.pointerId);showTip(u,e.clientX,e.clientY);}else{sel=null;updUI();}});
-cv.addEventListener('pointermove',e=>{if(!drag)return;const r=cv.getBoundingClientRect();drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.moved=true;hideTip();});
+  if(u){drag={u,from:s,x:px,y:py,moved:false,sx:px,sy:py};cv.setPointerCapture(e.pointerId);showTip(u,e.clientX,e.clientY);}else if(sel&&s){const from=sel.col>=0?{c:sel.col,r:sel.row}:{bench:G.bench.indexOf(sel)};swapTo(sel,s,from);sel=null;updUI();}else{sel=null;updUI();}});
+function swapTo(u,s,from){const other=unitAt(s);if(s.c!=null&&u.col<0&&!other&&boardCount()>=cap()){flash('판에 '+cap()+'명까지 · ⬆경험치로 레벨 업!');return;}if(u.hero&&s.bench!=null)return;if(other&&other.hero&&from.bench!=null)return;
+  const place=(x,sp)=>{if(sp.bench!=null){x.col=-1;x.row=-1;const di=G.board.indexOf(x);if(di>=0)G.board.splice(di,1);G.bench[sp.bench]=x;}else{const bi=G.bench.indexOf(x);if(bi>=0)G.bench[bi]=null;x.col=sp.c;x.row=sp.r;if(!G.board.includes(x))G.board.push(x);}};
+  place(u,s);if(other&&other!==u)place(other,from);}
+cv.addEventListener('pointermove',e=>{if(!drag)return;const r=cv.getBoundingClientRect();drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;if(Math.hypot(drag.x-drag.sx,drag.y-drag.sy)>8){drag.moved=true;hideTip();}});
 cv.addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;hideTip();const s=at(d.x,d.y);
-  if(!d.moved||!s){sel=d.u.hero?null:d.u;updUI();return;}
+  if(!d.moved||!s){if(sel&&sel!==d.u&&!sel.hero&&!d.u.hero&&s){const from=sel.col>=0?{c:sel.col,r:sel.row}:{bench:G.bench.indexOf(sel)};swapTo(sel,s,from);sel=null;updUI();return;}sel=d.u.hero?null:d.u;updUI();return;}
   const other=unitAt(s);const u=d.u;
-  const toBoard=s.c!=null;if(toBoard&&u.col<0&&!other&&boardCount()>=cap()){flash('판에 '+cap()+'명까지 (레벨 업!)');return;}
+  const toBoard=s.c!=null;if(toBoard&&u.col<0&&!other&&boardCount()>=cap()){flash('판에 '+cap()+'명까지 · ⬆경험치로 레벨 업!');return;}
   if(u.hero&&s.bench!=null)return;if(other&&other.hero&&d.from.bench!=null)return;
   // 원래 자리 비우기
   const place=(x,sp)=>{if(sp.bench!=null){x.col=-1;x.row=-1;const di=G.board.indexOf(x);if(di>=0)G.board.splice(di,1);G.bench[sp.bench]=x;}else{const bi=G.bench.indexOf(x);if(bi>=0)G.bench[bi]=null;x.col=sp.c;x.row=sp.r;if(!G.board.includes(x))G.board.push(x);}};
