@@ -154,12 +154,13 @@ function openChar(){const box=$('#bagBox');openModal('#mBag');const s=stats();
    <div class="paper"><div class="pcol">${['helmet','tshirt','chestplate','cloak','leggings','boots'].map(slot).join('')}</div>
      <div class="pmid"><canvas id="pdoll" width="96" height="192"></canvas><div class="pst"><b>Lv.${L.lv}</b><br>공격 ${s.atk} · 발차기 ${s.kick}<br>방어(AC) ${s.def}<br>HP ${P.max} · MP ${mpMax()}<br>공속 ×${(((S.polyOn&&S.eq.poly)?S.eq.poly.aspd:1)*(hasBuff('brave')?1.25:1)).toFixed(2)} · 이속 ×${polySpeed().toFixed(2)}</div></div>
      <div class="pcol">${['weapon','shield','gloves','belt','bow','poly'].map(slot).join('')}</div></div>
+   <div class="row" style="justify-content:center">${['mount','summon','pet'].map(slot).join('')}</div>
    <div class="row" style="justify-content:center">${['amulet','earring','ring1','ring2','dskin'].map(slot).join('')}</div>
-   <p class="note">칸을 누르면 빼요. 장비는 🎒 인벤토리에서 눌러서 장착해요.</p><div class="btns"><button data-inv>🎒 인벤토리</button></div>`;
+   <p class="note">칸을 누르면 빼요. 장비는 🎒 인벤토리에서 눌러서 장착해요.</p><div class="btns"><button data-fg>⚒ 공방</button><button data-lk>🧍 외형</button><button data-inv>🎒 인벤토리</button></div>`;
   drawDoll();
-  box.onclick=e=>{const t=e.target.closest('[data-x],[data-s],[data-inv]');if(!t)return;if(t.dataset.x!=null){closeModal('#mBag');return;}if(t.dataset.inv!=null){closeModal('#mBag');openInv();return;}
-    const k=t.dataset.s;const it=S.eq[k];if(!it)return;delete S.eq[k];S.bag.push(it);if(k==='poly'){S.polyOn=false;applyPoly();}saveAll();refreshGear().then(buildPad);$('#mBag').hidden=true;openChar();};}
-async function drawDoll(){const c=$('#pdoll');if(!c)return;const g=c.getContext('2d');g.imageSmoothingEnabled=false;let img=null;if(S.mcskin)img=await load(S.mcskin).catch(()=>null);if(!img)img=await composeSkin(S.skin);const k=img.width/64,u=6;
+  box.onclick=e=>{const t=e.target.closest('[data-x],[data-s],[data-inv],[data-fg],[data-lk]');if(!t)return;if(t.dataset.fg!=null){closeModal('#mBag');openForge();return;}if(t.dataset.lk!=null){closeModal('#mBag');openLook();return;}if(t.dataset.x!=null){closeModal('#mBag');return;}if(t.dataset.inv!=null){closeModal('#mBag');openInv();return;}
+    const k=t.dataset.s;const it=S.eq[k];if(!it)return;delete S.eq[k];S.bag.push(it);if(k==='poly'){S.polyOn=false;applyPoly();}if(k==='mount'){setRide(false);mountBuild();}if(k==='summon'){S.sumOn=false;summonBuild();}if(k==='pet')petBuild();saveAll();refreshGear().then(buildPad);$('#mBag').hidden=true;openChar();};}
+async function drawDoll(){if(S.gfx==='kk'&&typeof KP!=='undefined'&&KP.A){const c=$('#pdoll');if(!c)return;const g=c.getContext('2d');g.fillStyle='#e9edf5';g.font='15px Do Hyeon';g.textAlign='center';g.fillText(KK_CLASS[S.kkc]||'',48,180);g.font='60px serif';g.fillText({Knight:'🛡',Barbarian:'🪓',Mage:'🔮',Rogue:'🗡',Rogue_Hooded:'🏹'}[S.kkc]||'🧍',48,110);return;}const c=$('#pdoll');if(!c)return;const g=c.getContext('2d');g.imageSmoothingEnabled=false;let img=null;if(S.mcskin)img=await load(S.mcskin).catch(()=>null);if(!img)img=await composeSkin(S.skin);const k=img.width/64,u=6;
   const B=(sx,sy,sw,sh,dx,dy)=>g.drawImage(img,sx*k,sy*k,sw*k,sh*k,dx*u,dy*u,sw*u,sh*u);B(8,8,8,8,4,0);B(40,8,8,8,4,0);B(20,20,8,12,4,8);B(44,20,4,12,0,8);B(44,20,4,12,12,8);B(4,20,4,12,4,20);B(4,20,4,12,8,20);}
 /* ---------- 창: 상점 ---------- */
 function openShop(){const box=$('#bagBox');openModal('#mBag');
@@ -188,6 +189,8 @@ buildPad=function(){const pad=$('#pad');pad.className='ring';const sk=i=>SK[S.sl
   h+=B('AU',0,170,50,'<em>🤖</em>',AUTO.on?'자동 ON':'자동','');
   if(S.eq.poly)h+=B('PO',56,166,46,'<em>🎭</em>',S.polyOn?'해제':'변신','');
   if(S.eq.shield)h+=B('SH',158,112,44,'<em>🛡</em>','막기','⇧');
+  if(S.eq.mount)h+=B('MT',104,166,46,'<em>🦊</em>',typeof KP!=='undefined'&&KP.riding?'내리기':'타기','');
+  if(S.eq.summon)h+=B('SM',152,166,46,'<em>👻</em>',S.sumOn?'소환 해제':'소환','');
   pad.innerHTML=h;const au=pad.querySelector('[data-k=AU]');if(au)au.classList.toggle('on',AUTO.on);
   pad.querySelectorAll('.sk').forEach(el=>{el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}if(k.length===1&&'UIOP'.includes(k)&&!S.slots['UIOP'.indexOf(k)]){openSkillBook();return;}press(k);});
     el.addEventListener('pointerup',()=>{if(el.dataset.k==='SH')keys.Shift=false;});el.addEventListener('pointerleave',()=>{if(el.dataset.k==='SH')keys.Shift=false;});});};

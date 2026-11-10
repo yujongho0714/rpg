@@ -45,6 +45,8 @@ function press(a){if(paused||P.dead||MODE==='idle')return;
   else if(a==='L')fireBow();
   else if(a==='SP'){const d=inputDir();if(useSkill('_roll','SP')&&d)P.face=Math.atan2(d.x,d.z);}
   else if(a==='SH'){P.blockT=.6;}
+  else if(a==='MT'){setRide(!KP.riding);}
+  else if(a==='SM'){setSummon(!S.sumOn);}
   else if(a==='AU'){AUTO.on=!AUTO.on;toast(AUTO.on?'🤖 자동 사냥 켜짐':'자동 사냥 꺼짐',900);buildPad();}
   else if(a==='PO'){if(!S.eq.poly)return;S.polyOn=!S.polyOn;saveAll();applyPoly();toast(S.polyOn?'🎭 변신!':'변신을 풀었어요',900);}
   else{const i='UIOP'.indexOf(a);const id=S.slots[i];if(!id){toast('비어 있는 슬롯이에요. 🎒 가방에서 스킬을 넣어요',1300);return;}if(!owns(id)){toast('아직 없는 스킬이에요',1000);return;}useSkill(id,a);}}
@@ -74,7 +76,7 @@ function playerTick(dt){P.inv=Math.max(0,P.inv-dt);for(const k in P.cd)P.cd[k]=M
 
 /* ================= 화면 갱신 ================= */
 const camOff=new V3(0,10.5,9.8),camLook=new V3(),camVO={x:0,y:0};
-function camTick(dt){const want=P.pos.clone().add(innerWidth<innerHeight?new V3(0,13,11):camOff);cam.position.lerp(want,Math.min(1,dt*6));camLook.lerp(new V3(P.pos.x,1,P.pos.z),Math.min(1,dt*8));
+function camTick(dt){const want=P.pos.clone().add(S.gfx==='kk'?(innerWidth<innerHeight?new V3(0,10.5,9):new V3(0,8,7.6)):(innerWidth<innerHeight?new V3(0,13,11):camOff));cam.position.lerp(want,Math.min(1,dt*6));camLook.lerp(new V3(P.pos.x,1,P.pos.z),Math.min(1,dt*8));
   cam.lookAt(camLook);if(shake>0){cam.position.x+=rnd(-1,1)*shake*.5;cam.position.y+=rnd(-1,1)*shake*.5;shake=Math.max(0,shake-dt*1.4);}
   // 메이커 창이 열려 있으면 캐릭터가 창에 가리지 않게 화면을 옮김
   const open=$('#maker').classList.contains('open');const mob=innerWidth<=600;const mw=$('#maker').offsetWidth,mh=$('#maker').offsetHeight;
@@ -106,11 +108,11 @@ function diffLine(lab,a,b,unit='',lowerBetter){if(a==null&&b==null)return'';a=a|
 function itemIcon(it,cls='ico'){if(!it)return'';if(it.ic&&!it.img&&typeof ico==='function'){const sz=cls==='ico32'?32:44;return`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center">${ico(it.ic,sz)}</span>`;}if(it.slot==='poly'){const U=DU&&DU._cache&&DU._cache[it.u];return U?`<div style="width:48px;height:48px;display:inline-block;vertical-align:middle;${thumbStyle(U)}"></div>`:'🎭';}if(it.slot==='dskin'){const d=DSKINS.find(x=>x.id===it.k)||DSKINS[0];return`<span class="dmg ${d.cls}" style="position:static;transform:none;animation:none;font-size:20px">${d.pre||''}77</span>`;}
   return`<img class="${cls}" src="${esc(it.img||srcOf(it.icon))}" alt="">`;}
 function itemStats(it){if(!it)return'<div class="same">없음</div>';const L=[];if(it.atk)L.push((it.slot==='bow'?'활 공격력 ':'공격력 ')+it.atk);if(it.def)L.push('방어력 '+it.def);if(it.kick)L.push('발차기 +'+it.kick);if(it.reach)L.push('사거리 '+it.reach);
-  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);if(it.hp)L.push('최대 체력 +'+it.hp);if(it.mpx)L.push('최대 마나 +'+it.mpx);if(it.mreg)L.push('마나 회복 +'+it.mreg+'/초');if(it.dmg)L.push('추가 피해 +'+it.dmg);if(it.patk&&it.slot!=='poly')L.push('공격력 +'+it.patk+'%');if(it.en)L.push('강화 +'+it.en+(it.slot==='weapon'?' (공격력 +'+(it.en*2+(it.en>6?(it.en-6)*2:0))+')':' (방어 +'+it.en+')'));if(it.slot==='poly'){L.push('공격력 +'+it.patk+'%','공격 속도 ×'+it.aspd,'이동 속도 ×'+it.mspd,'체력 +'+it.php);const U=DU&&DU._cache&&DU._cache[it.u];if(U)L.push('진영: '+FACTION[U.f]);}return L.map(x=>`<div class="diff">${x}</div>`).join('');}
+  if(it.wc)L.push('종류: '+WCLASS[it.wc]);if(it.shot)L.push('화살: '+BOWTYPES[it.shot][0]+' — '+BOWTYPES[it.shot][1]);if(it.elem)L.push(ELEM[it.elem][0]+' — '+ELEM[it.elem][1]);if(it.hp)L.push('최대 체력 +'+it.hp);if(it.mpx)L.push('최대 마나 +'+it.mpx);if(it.mreg)L.push('마나 회복 +'+it.mreg+'/초');if(it.dmg)L.push('추가 피해 +'+it.dmg);if(it.patk&&it.slot!=='poly')L.push('공격력 +'+it.patk+'%');if(it.en)L.push('강화 +'+it.en+(it.slot==='weapon'?' (공격력 +'+(it.en*2+(it.en>6?(it.en-6)*2:0))+')':' (방어 +'+it.en+')'));if(it.slot==='mount')L.push('이동 속도 ×'+it.mspd);if(it.slot==='summon')L.push(it.desc||'','공격력 '+Math.round((.5+RAR[it.rar].i*.18)*100)+'% 로 같이 싸워요');if(it.slot==='pet')L.push('떨어진 아이템을 주워 와요 (범위 '+it.range+')');if(it.slot==='poly'){L.push('공격력 +'+it.patk+'%','공격 속도 ×'+it.aspd,'이동 속도 ×'+it.mspd,'체력 +'+it.php);const U=DU&&DU._cache&&DU._cache[it.u];if(U)L.push('진영: '+FACTION[U.f]);}return L.map(x=>`<div class="diff">${x}</div>`).join('');}
 function itemCard(it,title){if(!it)return`<div class="card"><div class="lab">${title}</div><h3 class="same">없음</h3></div>`;return`<div class="card" style="border-color:${RAR[it.rar].col}"><div class="lab">${title}</div><div class="row" style="margin:0">${itemIcon(it)}<div><h3>${esc(nm(it))}</h3>${rarTag(it.rar)}</div></div>${itemStats(it)}</div>`;}
 function slotOf(it){return it.slot;}
 function equip(it,fromBag){const s=slotOf(it);const old=S.eq[s];if(fromBag){const i=S.bag.findIndex(x=>x.id===it.id);if(i>=0)S.bag.splice(i,1);}
-  if(old)S.bag.push(old);S.eq[s]=it;if(s==='poly'){S.polyOn=true;applyPoly();}if(s==='dskin'){toast('데미지 스킨 장착: '+it.name,1200);}else refreshGear().then(buildPad);saveAll();buildPad();}
+  if(old)S.bag.push(old);S.eq[s]=it;if(s==='poly'){S.polyOn=true;applyPoly();}if(s==='mount')mountBuild().then(()=>setRide(true));if(s==='summon'){S.sumOn=true;summonBuild();buildPad();}if(s==='pet')petBuild();if(s==='dskin'){toast('데미지 스킨 장착: '+it.name,1200);}else refreshGear().then(buildPad);saveAll();buildPad();}
 function offer(th,fromBag){const box=$('#offerBox');openModal('#mOffer');sfx('Bonus',.4);
   const close=()=>{closeModal('#mOffer');};
   if(th.kind==='skill'){const sk=SK[th.id];if(!sk){close();return;}const isNew=!S.owned.includes(sk.id);if(isNew)S.owned.push(sk.id);saveAll();
@@ -165,7 +167,7 @@ function openBag2(){$('#mBag').hidden=true;openBag();}
 let lastT=performance.now(),dpsT=0;
 function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(hitStop>0){hitStop-=dt;dt*=.06;}
-  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion')studioTick(dt);else{autoTick(dt);playerTick(dt);polyTick(dt);}if(window.linTick)linTick(dt);
+  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion'){studioTick(dt);if(KP.A)KP.A.g.visible=false;}else{autoTick(dt);playerTick(dt);polyTick(dt);kkFrame(dt);}if(window.linTick)linTick(dt);
     for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.spd0==null)m.spd0=m.spd;if(MODE==='train'&&TR.passive&&!m.dummy){m.cd=Math.max(m.cd,1);m.wind=0;m.charging=0;m.spd=0;}else m.spd=m.spd0;
       mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
     projTick(dt);pickupTick(dt);stageTick(dt);}
@@ -535,6 +537,6 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)retur
   if(!S.owned.length)S.owned=[...new Set([...S.slots,...S.combo].filter(Boolean))];
   if(!S.v2){if(!DB.stage.themes.includes('duel'))DB.stage.themes.push('duel');S.v2=1;}DEF_STAGE.themes=Object.keys(THEMES);if(DB.stage.dropPoly==null)DB.stage.dropPoly=.04;DEF_STAGE.dropPoly=.04;
   duReady().then(U=>{DU._cache=U;}).catch(()=>{});
-  await buildMap('forest',{empty:true,size:24});await buildPlayer();if(S.polyOn&&S.eq.poly)applyPoly();buildPad();$('#coinT').textContent=S.coins;if(window.linInit)linInit();
+  await buildMap('forest',{empty:true,size:24});await buildPlayer();if(S.polyOn&&S.eq.poly)applyPoly();buildPad();$('#coinT').textContent=S.coins;if(window.linInit)linInit();if(window.kkInit)kkInit();
   if(S.best>1){$('#sCont').hidden=false;$('#sCont').textContent='▶ 이어하기 (스테이지 '+S.best+')';}
   $('#waveT').textContent='정도 게임 메이커';requestAnimationFrame(loop);})();

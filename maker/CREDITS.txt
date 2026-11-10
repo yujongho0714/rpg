@@ -22,3 +22,8 @@
 
 [아이콘]
 - ic/ 아이템·스킬 아이콘 1,262개 — rpg-icon-mega-pack (github.com/designclarity/rpg-icon-mega-pack), CC0 1.0
+
+[3D]
+- kk/ch, kk/w, kk/d — KayKit Adventurers / Skeletons / Dungeon Remastered (Kay Lousberg, kaylousberg.com), CC0 1.0
+- kk/m/Fox.glb — Khronos glTF Sample Assets "Fox" (PixelMannequin / @AsoboStudio, @scurest), CC0 1.0 / CC BY 4.0
+- lib/GLTFLoader.js, lib/SkeletonUtils.js — three.js r128, MIT

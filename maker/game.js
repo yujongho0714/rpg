@@ -128,9 +128,10 @@ async function spawnMob(id,x,z,o={}){const d=mobDef(id);if(!d.id)return null;let
   else if(d.model==='golem')obj=mkGolem(await load('a/boss/iron_golem.png'));else if(d.model==='dragon')obj=mkDragon(await load('a/boss/dragon.png'));else if(d.model==='wither')obj=mkWither(await load('a/boss/wither.png'));
   else if(d.model==='dummy')obj=await mkScarecrow();
   else if(d.model==='duel'){obj=await mkDuelMob(d,o);if(!obj)return null;}
+  else if(d.model==='kk'){obj=await mkKKMob(d,o);if(!obj)return null;}
   const sc=(d.scale||1)*(o.scale||1);obj.scale.multiplyScalar(sc);obj.position.set(x,0,z);scene.add(obj);
   const lv=o.level||Math.max(1,S.stage);const hpMul=1+(lv-1)*DB.stage.hpGrow,atkMul=1+(lv-1)*.1;
-  const m={id,d,obj,rig,pos:obj.position,hp:(d.hp||30)*hpMul,max:(d.hp||30)*hpMul,atk:(d.atk||8)*atkMul,spd:d.spd||2,cd:rnd(.6,1.6),wind:0,face:o.face||0,kb:new V3(),vy:0,lift:0,hurt:0,dead:0,boss:!!BOSSES.find(b=>b.id===id),ph:Math.random()*6,hop:0,radius:(d.pool==='boss'?1:d.model==='dragon'?2.2:d.model==='golem'?1:.45)*sc,squash:0,dummy:d.model==='dummy',st:null,t:0,fly:d.model==='dragon'?4:d.model==='wither'?2.5:0};
+  const m={id,d,obj,rig,pos:obj.position,hp:(d.hp||30)*hpMul,max:(d.hp||30)*hpMul,atk:(d.atk||8)*atkMul,spd:d.spd||2,cd:rnd(.6,1.6),wind:0,face:o.face||0,kb:new V3(),vy:0,lift:0,hurt:0,dead:0,boss:!!BOSSES.find(b=>b.id===id),ph:Math.random()*6,hop:0,radius:(d.model==='kk'&&BOSSES.find(b=>b.id===id)?.9:d.pool==='boss'?1:d.model==='dragon'?2.2:d.model==='golem'?1:.45)*sc,squash:0,dummy:d.model==='dummy',st:null,t:0,fly:d.model==='dragon'?4:d.model==='wither'?2.5:0};
   if(m.dummy){m.hp=m.max=1e9;}
   const bar=document.createElement('div');bar.className='mbar'+(m.boss?' boss':'');bar.innerHTML='<i></i>';document.body.appendChild(bar);m.bar=bar;
   if(m.boss){$('#bossbar').hidden=false;$('#bossName').textContent=d.name;}
@@ -285,7 +286,7 @@ function hurtPlayer(v,dir){if(P.inv>0||P.dead||S.god)return;const s=stats();let 
 
 /* ================= 몬스터 행동 ================= */
 function mobTick(m,dt){m.t+=dt;if(m.flashT>0){m.flashT-=dt;if(m.flashT<=0)flash(m,false);}
-  if(m.dead){m.dead+=dt;if(m.d.model==='duel')duelMobAnim(m,dt);if(m.vdie){m.pos.addScaledVector(m.vdie,dt);m.vy-=18*dt;m.lift=Math.max(-.2,(m.lift||0)+m.vy*dt);m.obj.position.y=m.lift;m.obj.rotation.x+=m.spin*dt*.5;m.obj.rotation.z+=m.spin*dt*.3;}if(m.dead>1.1)m.obj.scale.multiplyScalar(1-dt*3);return;}
+  if(m.dead){m.dead+=dt;if(m.d.model==='duel')duelMobAnim(m,dt);if(m.d.model==='kk'){kkMobAnim(m,dt);m.vdie=null;if(m.dead>2.2)m.obj.position.y-=dt*.8;return;}if(m.vdie){m.pos.addScaledVector(m.vdie,dt);m.vy-=18*dt;m.lift=Math.max(-.2,(m.lift||0)+m.vy*dt);m.obj.position.y=m.lift;m.obj.rotation.x+=m.spin*dt*.5;m.obj.rotation.z+=m.spin*dt*.3;}if(m.dead>1.1)m.obj.scale.multiplyScalar(1-dt*3);return;}
   statusTick(m,dt);m.squash=Math.max(0,m.squash-dt*6);
   const d=m.d;const to=P.pos.clone().sub(m.pos);to.y=0;const dist=to.length();const dir=to.clone().normalize();
   if(m.dummy){m.obj.rotation.z=Math.sin(m.t*20)*m.squash*.25;m.obj.rotation.x=m.kb.length()*.05;m.kb.set(0,0,0);return;}
@@ -329,6 +330,7 @@ function mobTick(m,dt){m.t+=dt;if(m.flashT>0){m.flashT-=dt;if(m.flashT<=0)flash(
   else if(d.model==='golem'){const u=m.obj.userData;u.legL.rotation.x=s*.5;u.legR.rotation.x=-s*.5;const up=m.wind>0&&m.attack==='slam'?-2.8:0;u.armL.rotation.x=up||-s*.4;u.armR.rotation.x=up||s*.4;}
   else if(d.model==='dragon'){const u=m.obj.userData;const f=Math.sin(m.t*3);u.wings.forEach((w,i)=>{w.rotation.z=(i?1:-1)*f*.6;w.userData.tip.rotation.z=(i?1:-1)*f*.4;});u.tail.forEach((t,i)=>t.rotation.y=Math.sin(m.t*2+i*.5)*.15);u.neck.forEach((n,i)=>n.rotation.x=Math.sin(m.t*1.5+i)*.06);u.jaw.rotation.x=m.wind>0?.5:.1;m.obj.position.y=m.fly+Math.sin(m.t*1.5)*.4;}
   else if(d.model==='duel')duelMobAnim(m,dt);
+  else if(d.model==='kk')kkMobAnim(m,dt);
   else if(d.model==='wither'){m.obj.position.y=m.fly+Math.sin(m.t*2)*.3;m.obj.userData.heads.forEach((h,i)=>h.rotation.y=Math.sin(m.t+i)*.3);}
   if(d.model!=='dragon'&&d.model!=='wither'&&d.model!=='slime')m.obj.position.y=0;}
 
@@ -368,7 +370,7 @@ function stageTick(dt){if(MODE!=='play'||P.dead)return;spawnT-=dt;const alive=mo
   if(!waveQ.length&&killed>=toKill&&!stageClear){if(wave<DB.stage.waves)nextWave();else{stageClear=true;P.hp=Math.min(P.max,P.hp+P.max*.3);updHP();toast('스테이지 클리어! 포털로 들어가면 다음 스테이지',2200);sfx('Success1',.5);
       pfx('holy/heal-aoe',P.pos.clone(),{scale:1});portal=new THREE.Group();portal.position.set(0,0,-3);scene.add(portal);portalFx=pfx('arcane/portal',new V3(0,.05,-3),{scale:1.4,life:999});}}
   if(stageClear&&portal&&P.pos.distanceTo(portal.position)<1.4){stageClear=false;startStage(S.stage+1);}}
-async function startTrain(){MODE='train';clearField();await buildMap('forest',{empty:true,size:26});P.pos.set(0,0,2);P.face=PI;
+async function startTrain(){MODE='train';clearField();await buildMap(S.gfx==='kk'?'kk_fort':'forest',{empty:true,size:26});P.pos.set(0,0,2);P.face=PI;
   // 허수아비: 앞·왼쪽·오른쪽·뒤
   const spots=[[0,-1.8,'앞'],[-2.6,2,'왼쪽'],[2.6,2,'오른쪽'],[0,5.2,'뒤']];for(const [x,z,n] of spots){const m=await spawnMob('dummy',x,z);if(m){m.face=Math.atan2(P.pos.x-x,P.pos.z-z);m.obj.rotation.y=m.face;m.label=n;}}
   updWave();toast('연습장: 허수아비를 때려보세요. 메이커에서 몬스터도 불러올 수 있어요',2400);}
