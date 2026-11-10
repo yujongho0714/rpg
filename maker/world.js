@@ -5,12 +5,12 @@ const hexPos=(c,r)=>({x:W0.x+HW*(c+.5*(r&1))+HW/2,z:W0.z+HZ*r+HZ/2});
 function hexAt(x,z){const r=Math.round((z-W0.z-HZ/2)/HZ);const c=Math.round((x-W0.x-HW/2)/HW-.5*(r&1));return{c,r};}
 const ZONES=[
   {id:'town',name:'정도 마을',lv:0,c:17,r:18,rad:3,col:'#ffd24a'},
-  {id:'z1',name:'해골 초원',lv:1,c:11,r:14,rad:3,mobs:['k_minion'],n:8,col:'#9be07a'},
-  {id:'z2',name:'바위 언덕',lv:5,c:24,r:13,rad:3,mobs:['k_minion','k_archer'],n:9,col:'#c9b48a'},
-  {id:'z3',name:'검은 숲',lv:10,c:9,r:24,rad:3,mobs:['k_rogue','k_warrior'],n:9,col:'#3f7a4a'},
-  {id:'z4',name:'호숫가 폐허',lv:15,c:25,r:24,rad:3,mobs:['k_mage','k_archer','k_warrior'],n:9,col:'#6ab8e0'},
-  {id:'z5',name:'광전사 야영지',lv:20,c:17,r:30,rad:3,mobs:['k_warrior','k_rogue','k_mage'],n:10,col:'#e07a5a',boss:'k_berserk'},
-  {id:'z6',name:'해골 왕의 언덕',lv:25,c:17,r:6,rad:3,mobs:['k_warrior','k_mage','k_rogue','k_archer'],n:10,col:'#b07aff',boss:'k_lord'}];
+  {id:'z1',name:'해골 초원',lv:1,c:11,r:14,rad:3,mobs:['brawler','zombie','slime','d_fighter'],n:9,col:'#9be07a'},
+  {id:'z2',name:'바위 언덕',lv:5,c:24,r:13,rad:3,mobs:['thrower','skeleton','runner','d_caster','spider'],n:9,col:'#c9b48a'},
+  {id:'z3',name:'검은 숲',lv:10,c:9,r:24,rad:3,boss:'enderman',mobs:['shadow','spider','d_blinker','husk','brawler'],n:10,col:'#3f7a4a'},
+  {id:'z4',name:'호숫가 폐허',lv:15,c:25,r:24,rad:3,boss:'giant',mobs:['stray','d_caster','d_rusher','thrower','slime'],n:10,col:'#6ab8e0'},
+  {id:'z5',name:'광전사 야영지',lv:20,c:17,r:30,rad:3,mobs:['brute','wither_sk','d_fighter','d_rusher','runner'],n:11,col:'#e07a5a',boss:'golem'},
+  {id:'z6',name:'해골 왕의 언덕',lv:25,c:17,r:6,rad:3,mobs:['wither_sk','shadow','d_blinker','d_caster','brute'],n:11,col:'#b07aff',boss:'d_boss'}];
 const PORTALS=[{name:'지하 무덤 입구',c:5,r:9,th:'kk_tomb'},{name:'버려진 광산 입구',c:29,r:8,th:'kk_mine'},{name:'해골 요새 입구',c:28,r:31,th:'kk_fort'}];
 const NPCS=[{name:'상인 루나',file:'Rogue_Hooded',dc:-1.2,dr:0,act:'shop',t:'🏪 물약·주문서'},{name:'대장장이 강철',file:'Barbarian',dc:1.2,dr:0,act:'forge',t:'⚒ 공방·강화'},{name:'관장님',file:'Knight',dc:0,dr:-1.2,act:'quest',t:'📜 오늘의 사냥'},{name:'마법사 별이',file:'Mage',dc:0,dr:1.2,act:'poly',t:'🎭 변신·소환'}];
 let WORLD=null;
@@ -29,7 +29,7 @@ function genWorld(){const T=[];let seed=7;const R=()=>{seed=(seed*16807)%2147483
   ZONES.slice(1).forEach(Z=>{[[1,0,'tent'],[-1,1,'flag_red'],[0,-1,'crate_A_big']].forEach(([dc,dr,n])=>{const t=T.find(x=>x.c===Z.c+dc&&x.r===Z.r+dr);if(t&&!t.d)t.d=n;});});
   return T;}
 async function instMeshes(name,list,scale=WS,shadow=true){if(!list.length)return;const g=await gltf('kk/h/'+name+'.gltf').catch(()=>null);if(!g)return;g.scene.updateMatrixWorld(true);
-  g.scene.traverse(o=>{if(!o.isMesh)return;const mat=o.material.clone();if(name==='hex_grass')mat.color.setRGB(.72,.86,.66);else mat.color.setRGB(.9,.9,.9);const im=new THREE.InstancedMesh(o.geometry,mat,list.length);const m=new THREE.Matrix4(),q=new THREE.Quaternion();
+  g.scene.traverse(o=>{if(!o.isMesh)return;const mat=o.material.clone();if(name==='hex_grass')mat.color.setRGB(.5,.68,.42);else mat.color.setRGB(.9,.9,.9);const im=new THREE.InstancedMesh(o.geometry,mat,list.length);const m=new THREE.Matrix4(),q=new THREE.Quaternion();
     list.forEach((p,i)=>{q.setFromAxisAngle(new V3(0,1,0),p.rot||0);m.compose(new V3(p.x,p.y||0,p.z),q,new V3(scale*(p.s||1),scale*(p.s||1),scale*(p.s||1)));m.multiply(o.matrixWorld);im.setMatrixAt(i,m);});
     im.castShadow=shadow;im.receiveShadow=true;scene.add(im);MAP.objs.push(im);});}
 async function buildWorld(){MAP.objs.forEach(o=>scene.remove(o));MAP.objs=[];MAP.theme='world';const T=WORLD||(WORLD=genWorld());
