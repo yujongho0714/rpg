@@ -173,7 +173,7 @@ function hurtMob(m,v,crit,kb3,o={}){if(!m||m.dead)return;
     for(let i=0;i<12;i++){const c=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.12),new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(Math.random(),.4,.5)}));c.position.copy(m.pos).setY(1);scene.add(c);gibs.push({m:c,v:new V3(rnd(-4,4),rnd(3,7),rnd(-4,4)),t:0});}
     pfx(m.boss?'shadow/dark-explosion':'spawn/poof',m.pos.clone().setY(.05),{scale:m.boss?1.3:1});
     if(m.st&&m.st.fire)mobs.filter(x=>!x.dead&&x!==m).sort((a,b)=>a.pos.distanceTo(m.pos)-b.pos.distanceTo(m.pos)).slice(0,3).forEach(x=>{if(x.pos.distanceTo(m.pos)<6)applyStatus(x,'fire',m.st.fire.d);});
-    if(MODE==='play'){S.coins+=m.boss?25:2;$('#coinT').textContent=S.coins;dropCoins(m.pos,m.boss?10:2);rollLoot(m);updWave();}
+    if(MODE==='play'||MODE==='world'){S.coins+=m.boss?25:2;$('#coinT').textContent=S.coins;dropCoins(m.pos,m.boss?10:2);rollLoot(m);updWave();}
     if(m.boss){$('#bossbar').hidden=true;}}}
 const gibs=[];
 
@@ -357,7 +357,7 @@ function pickupTick(dt){for(let i=drops.length-1;i>=0;i--){const d=drops[i];d.t+
 
 /* ================= 스테이지 (무한 랜덤) ================= */
 let portalFx=null,MODE='idle',paused=true,wave=0,waveQ=[],toKill=0,stageClear=false,portal=null;
-function updWave(){$('#waveT').textContent=MODE==='train'?'연습장':'스테이지 '+S.stage+' · '+(THEMES[MAP.theme]||{}).name;$('#killT').textContent=MODE==='train'?'허수아비와 몬스터를 때려보세요':'웨이브 '+wave+'/'+DB.stage.waves+' · 남은 '+Math.max(0,toKill-killed);}
+function updWave(){if(MODE==='world'){$('#waveT').textContent='';$('#killT').textContent='';return;}$('#waveT').textContent=MODE==='train'?'연습장':'스테이지 '+S.stage+' · '+(THEMES[MAP.theme]||{}).name;$('#killT').textContent=MODE==='train'?'허수아비와 몬스터를 때려보세요':'웨이브 '+wave+'/'+DB.stage.waves+' · 남은 '+Math.max(0,toKill-killed);}
 function clearField(){[...mobs].forEach(removeMob);projs.forEach(a=>scene.remove(a.g));projs.length=0;drops.forEach(d=>scene.remove(d.g));drops.length=0;if(portal){scene.remove(portal);portal=null;}if(portalFx){portalFx.fx.stop();portalFx=null;}$('#bossbar').hidden=true;}
 async function startStage(n){S.stage=n;S.best=Math.max(S.best,n);saveAll();MODE='play';clearField();const st=DB.stage;const th=pick(st.themes.length?st.themes:Object.keys(THEMES));
   await buildMap(th);P.pos.set(0,0,0);P.face=PI;wave=0;stageClear=false;nextWave();updWave();toast('스테이지 '+n+' · '+THEMES[th].name,1800);}

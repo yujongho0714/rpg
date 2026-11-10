@@ -79,7 +79,7 @@ const KKTH={kk_tomb:{name:'지하 무덤',floor:['floor_tile_large','floor_tile_
 Object.keys(KKTH).forEach(k=>{THEMES[k]=Object.assign({},THEMES.dungeon,KKTH[k]);});
 const DECO=[['barrel_large',1],['barrel_small_stack',1],['box_stacked',1],['crates_stacked',1],['chest',1],['rubble_large',1],['keg_decorated',1],['table_medium_decorated_A',1],['trunk_large_A',1],['coin_stack_large',0],['candle_triple',0],['sword_shield',0]];
 const _buildMap0=buildMap;
-buildMap=async function(themeKey,opt={}){if(!(themeKey in KKTH))return _buildMap0(themeKey,opt);
+buildMap=async function(themeKey,opt={}){scene.fog.near=20;scene.fog.far=40;if(!(themeKey in KKTH))return _buildMap0(themeKey,opt);
   MAP.objs.forEach(o=>{scene.remove(o);});MAP.objs=[];const th=KKTH[themeKey];MAP.theme=themeKey;const N=opt.size?opt.size+(opt.size%2):(24+2*Math.floor(rnd(0,5)));MAP.N=N;MAP.solid=new Uint8Array(N*N);const H=N/2;
   scene.background.set(th.fog);scene.fog.color.set(th.fog);sun.color.set(th.light);sun.intensity=.75;
   const add=async(name,x,z,ry=0,s=.5,y=0)=>{const r=await kkClone('kk/d/'+name+'.glb').catch(()=>null);if(!r)return null;r.s.scale.setScalar(s);r.s.position.set(x,y,z);r.s.rotation.y=ry;scene.add(r.s);MAP.objs.push(r.s);return r.s;};

@@ -27,3 +27,4 @@
 - kk/ch, kk/w, kk/d — KayKit Adventurers / Skeletons / Dungeon Remastered (Kay Lousberg, kaylousberg.com), CC0 1.0
 - kk/m/Fox.glb — Khronos glTF Sample Assets "Fox" (PixelMannequin / @AsoboStudio, @scurest), CC0 1.0 / CC BY 4.0
 - lib/GLTFLoader.js, lib/SkeletonUtils.js — three.js r128, MIT
+- kk/h — KayKit Medieval Hexagon Pack (Kay Lousberg), CC0 1.0

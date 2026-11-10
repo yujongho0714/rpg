@@ -35,7 +35,7 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
     $$('#pad').forEach(()=>{});}})();
 // 폰에서 메이커가 열려 있을 때 게임 화면을 누르면 닫기
 $('#game').addEventListener('pointerdown',()=>{if(innerWidth<=600)$('#maker').classList.remove('open');});
-function inputDir(){let x=joy.x,z=joy.z;if(keys.a||keys.ArrowLeft||keys['ㅁ'])x-=1;if(keys.d||keys.ArrowRight||keys['ㅇ'])x+=1;if(keys.w||keys.ArrowUp||keys['ㅈ'])z-=1;if(keys.s||keys.ArrowDown||keys['ㄴ'])z+=1;const l=Math.hypot(x,z);if(l>.15)return{x:x/Math.max(1,l),z:z/Math.max(1,l),l:Math.min(1,l)};if(AUTO.on&&AUTO.dir){const q=Math.hypot(AUTO.dir.x,AUTO.dir.z);if(q>.2)return{x:AUTO.dir.x/q,z:AUTO.dir.z/q,l:1};}return null;}
+function inputDir(){let x=joy.x,z=joy.z;if(keys.a||keys.ArrowLeft||keys['ㅁ'])x-=1;if(keys.d||keys.ArrowRight||keys['ㅇ'])x+=1;if(keys.w||keys.ArrowUp||keys['ㅈ'])z-=1;if(keys.s||keys.ArrowDown||keys['ㄴ'])z+=1;const l=Math.hypot(x,z);if(l>.15){if(typeof NAV!=='undefined'&&NAV.path)navCancel();return{x:x/Math.max(1,l),z:z/Math.max(1,l),l:Math.min(1,l)};}if(typeof NAV!=='undefined'&&NAV.path){const n=navDir();if(n){const q=Math.hypot(n.x,n.z);return{x:n.x/q,z:n.z/q,l:1};}}if(AUTO.on&&AUTO.dir){const q=Math.hypot(AUTO.dir.x,AUTO.dir.z);if(q>.2)return{x:AUTO.dir.x/q,z:AUTO.dir.z/q,l:1};}return null;}
 function nextJ(){const list=S.combo.filter(id=>SK[id]);return list.length?list[P.combo%list.length]:'ap';}
 function nextK(){const w=S.eq.weapon;if(!w)return['jireugi','bn_punch1'][P.wcombo%2];if(w.wc==='gun')return null;const l=WCOMBO[w.wc]||WCOMBO.sword;return l[P.wcombo%l.length];}
 function press(a){if(paused||P.dead||MODE==='idle')return;
@@ -167,9 +167,9 @@ function openBag2(){$('#mBag').hidden=true;openBag();}
 let lastT=performance.now(),dpsT=0;
 function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(hitStop>0){hitStop-=dt;dt*=.06;}
-  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion'){studioTick(dt);if(KP.A)KP.A.g.visible=false;}else{autoTick(dt);playerTick(dt);polyTick(dt);kkFrame(dt);}if(window.linTick)linTick(dt);
+  if(!paused&&P.rig){if(ST.on&&!P.act&&$('#maker').classList.contains('open')&&curTab==='motion'){studioTick(dt);if(KP.A)KP.A.g.visible=false;}else{autoTick(dt);playerTick(dt);polyTick(dt);kkFrame(dt);if(window.worldTick)worldTick(dt);}if(window.linTick)linTick(dt);
     for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.spd0==null)m.spd0=m.spd;if(MODE==='train'&&TR.passive&&!m.dummy){m.cd=Math.max(m.cd,1);m.wind=0;m.charging=0;m.spd=0;}else m.spd=m.spd0;
-      mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
+      if(MODE==='world'&&!m.dead&&Math.hypot(m.pos.x-P.pos.x,m.pos.z-P.pos.z)>45)continue;mobTick(m,dt);if(m.dead>1.6)removeMob(m);}
     projTick(dt);pickupTick(dt);stageTick(dt);}
   pfxTick(dt);kfxTick(dt);floatTick(dt);if(P.rig)camTick(dt);barsTick();padTick();
   dpsT+=dt;if(dpsT>.5){dpsT=0;trainTick();}
@@ -182,10 +182,11 @@ function trainTick(){if(MODE!=='train')return;const sum=mobs.filter(m=>m.dummy).
 function hideStart(){$('#start').hidden=true;}
 async function goPlay(n){hideStart();$('#mOver').hidden=true;P.dead=false;P.hp=P.max;updHP();paused=false;await startStage(n);}
 async function goTrain(){hideStart();$('#mOver').hidden=true;P.dead=false;P.hp=P.max;updHP();paused=false;TR.dps=[];await startTrain();}
-$('#sNew').onclick=()=>goPlay(1);$('#sCont').onclick=()=>goPlay(Math.max(1,S.best));$('#sTrain').onclick=goTrain;$('#sMaker').onclick=()=>needAdmin(()=>{goTrain().then(()=>openMaker('train'));});
+$('#sNew').onclick=()=>goWorld();$('#sCont').onclick=()=>goPlay(Math.max(1,S.best));$('#sTrain').onclick=goTrain;$('#sMaker').onclick=()=>needAdmin(()=>{goTrain().then(()=>openMaker('train'));});
 $('#oRetry').onclick=()=>goPlay(Math.max(1,S.stage));$('#oFirst').onclick=()=>goPlay(1);$('#oTrain').onclick=goTrain;
-$('#bPlay').onclick=()=>{if(MODE==='play'&&!confirm('지금 스테이지를 처음부터 다시 할까요?'))return;goPlay(MODE==='play'?S.stage:Math.max(1,S.best||1));};
-$('#bTrain').onclick=goTrain;$('#bBag').onclick=()=>openBag();$('#bMaker').onclick=()=>needAdmin(()=>{if(MODE==='idle')goTrain();openMaker();});
+$('#bPlay').onclick=()=>{if(MODE==='world')openWorldMap();else goWorld();};
+$('#bTrain').onclick=()=>goWorld({x:ZONES[0].x,z:ZONES[0].z+4});
+$('#bBag').onclick=()=>openBag();$('#bMaker').onclick=()=>needAdmin(()=>{if(MODE==='idle')goTrain();openMaker();});
 $('#bSnd').onclick=()=>{sndOn=!sndOn;$('#bSnd').textContent=sndOn?'🔊':'🔇';if(BGM){if(sndOn)BGM.play().catch(()=>{});else BGM.pause();}};
 let BGM=null;function bgm(){if(BGM||!sndOn)return;BGM=new Audio('a/s/bgm.ogg');BGM.loop=true;BGM.volume=.22;BGM.play().catch(()=>{BGM=null;});}
 addEventListener('pointerdown',bgm,{once:true});addEventListener('keydown',bgm,{once:true});

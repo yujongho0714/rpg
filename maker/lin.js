@@ -15,8 +15,8 @@ const CONS={
   pot_mp:{n:'마나 회복제',ic:'potions/mana_potion_flask_cap',d:'마나를 30 회복해요.',price:60,use:()=>{L.mp=Math.min(mpMax(),L.mp+30);kp('magic_02',P.pos.clone().setY(.05),{color:0x4aa3ff,size:2,life:.5});return true;}},
   pot_haste:{n:'속도 향상 물약',ic:'potions/nature_potion_flask',d:'5분 동안 이동 속도가 1.3배가 돼요.',price:120,use:()=>buff('haste',300)},
   pot_brave:{n:'용기의 물약',ic:'potions/fire_potion_flask_cork',d:'5분 동안 공격 속도가 1.25배가 돼요.',price:200,use:()=>buff('brave',300)},
-  scr_tel:{n:'순간이동 주문서',ic:'magic/rolled_scroll_wax_blue',d:'지금 있는 맵의 아무 곳으로 순간이동해요.',price:40,use:()=>teleport()},
-  scr_ret:{n:'귀환 주문서',ic:'magic/rolled_scroll_wax_red',d:'마을(연습장)로 돌아가요.',price:60,use:()=>{msg('마을로 돌아갑니다');goTrain();return true;}},
+  scr_tel:{n:'순간이동 주문서',ic:'magic/rolled_scroll_wax_blue',d:'지금 있는 사냥터(또는 맵) 안 아무 곳으로 순간이동해요.',price:40,use:()=>teleport()},
+  scr_ret:{n:'귀환 주문서',ic:'magic/rolled_scroll_wax_red',d:'정도 마을로 돌아가요.',price:60,use:()=>{msg('마을로 돌아갑니다');goWorld({x:ZONES[0].x,z:ZONES[0].z+4});return true;}},
   scr_poly:{n:'변신 주문서',ic:'magic/torn_scroll_gold',d:'무작위 유닛 변신 카드를 얻어요. 레벨이 높을수록 좋은 등급이 잘 나와요.',price:500,use:()=>{usePolyScroll();return true;}},
   scr_ew:{n:'무기 강화 주문서',ic:'magic/tied_scroll_wax_red',d:'무기를 +1 강화해요. 안전 강화(+6)를 넘으면 실패할 수 있고, 실패하면 무기가 사라져요.',price:800,ench:'w'},
   scr_ea:{n:'갑옷 강화 주문서',ic:'magic/tied_scroll_wax_blue',d:'방어구를 +1 강화해요. 안전 강화(+4)를 넘으면 실패할 수 있고, 실패하면 방어구가 사라져요.',price:500,ench:'a'},
@@ -66,7 +66,7 @@ function useItem(k){const c=CONS[k];if(!c||!(L.inv[k]>0))return false;if(MODE===
 function healP(v,col){if(P.dead)return false;if(P.hp>=P.max){msg('체력이 가득 차 있어요');return false;}P.hp=Math.min(P.max,P.hp+v);updHP();kp('magic_02',P.pos.clone().setY(.05),{color:new THREE.Color(col).getHex(),size:2,life:.5});dmgText(P.pos,'+'+v,'heal');return true;}
 function buff(k,sec){L.buff[k]=performance.now()/1000+sec;msg((k==='haste'?'몸이 빨라집니다':'용기가 솟아납니다')+` (${Math.round(sec/60)}분)`,'#9fffb0');pfx('holy/heal-aoe',P.pos.clone().setY(.05),{scale:.7});buffUI();return true;}
 const hasBuff=k=>(L.buff[k]||0)>performance.now()/1000;
-function teleport(){const H=MAP.N/2-2;for(let i=0;i<40;i++){const x=rnd(-H,H),z=rnd(-H,H);if(!isSolid(x,z)&&!isSolid(x+.4,z)&&!isSolid(x-.4,z)){pfx('arcane/mana-burst',P.pos.clone().setY(.05),{scale:.9});P.pos.set(x,0,z);pfx('arcane/mana-burst',P.pos.clone().setY(.05),{scale:.9});sfx('Magic1',.3,1.6);cam.position.set(x,12,z+11);return true;}}return false;}
+function teleport(){const H=MAP.N/2-2;const Z=MODE==='world'&&typeof inZone==='function'?inZone():null;for(let i=0;i<60;i++){let x=rnd(-H,H),z=rnd(-H,H);if(MODE==='world'){const c=Z&&Z.lv?Z:pick(ZONES.filter(q=>q.lv&&q.lv<=L.lv+5).concat([ZONES[1]]));x=c.x+rnd(-HW*1.5,HW*1.5);z=c.z+rnd(-HW*1.5,HW*1.5);}if(!isSolid(x,z)&&!isSolid(x+.4,z)&&!isSolid(x-.4,z)){pfx('arcane/mana-burst',P.pos.clone().setY(.05),{scale:.9});P.pos.set(x,0,z);pfx('arcane/mana-burst',P.pos.clone().setY(.05),{scale:.9});sfx('Magic1',.3,1.6);cam.position.set(x,12,z+11);return true;}}return false;}
 async function usePolyScroll(){const U=await duReady();DU._cache=U;const pool=await duPool(Math.random()<.04+L.lv*.002?'boss':'unit');const uid=pick(pool);offer({kind:'item',it:makePoly(uid,randRar(Math.min(.5,L.lv*.012)))});}
 /* ---------- 강화 ---------- */
 function enchantPick(k){const c=CONS[k];const box=$('#offerBox');openModal('#mOffer');
@@ -119,7 +119,7 @@ function qsBuild(){const q=$('#lmQuick');q.innerHTML=L.qs.map((k,i)=>`<div class
 function qsTick(){$$('#lmQuick .qs').forEach(el=>{const i=el.dataset.q;if(i==='ap'){el.classList.toggle('on',L.autoOn);el.querySelector('i').textContent=L.autoHp+'%';return;}const k=L.qs[+i];const n=k?(L.inv[k]||0):0;el.querySelector('i').textContent=k?n:'';el.style.opacity=k&&!n?.45:1;});}
 addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(/^[1-8]$/.test(e.key)){const k=L.qs[+e.key-1];if(k)useItem(k);}if(e.key==='Tab'||e.key==='b'||e.key==='ㅠ'){e.preventDefault();$('#mBag').hidden?openInv():closeModal('#mBag');}if(e.key==='c'||e.key==='ㅊ'){openChar();}});
 /* 미니맵 */
-function miniMap(){const c=$('#lmMap');if(!c||!MAP.solid)return;const g=c.getContext('2d'),W=c.width,N=MAP.N,s=W/N,H=N/2;g.fillStyle='rgba(8,10,16,.85)';g.fillRect(0,0,W,W);g.fillStyle='#3a4254';
+function miniMap(){if(MODE==='world'&&typeof worldMini==='function')return worldMini();const c=$('#lmMap');if(!c||!MAP.solid)return;const g=c.getContext('2d'),W=c.width,N=MAP.N,s=W/N,H=N/2;g.fillStyle='rgba(8,10,16,.85)';g.fillRect(0,0,W,W);g.fillStyle='#3a4254';
   for(let j=0;j<N;j++)for(let i=0;i<N;i++)if(MAP.solid[j*N+i])g.fillRect(i*s,j*s,s+.5,s+.5);
   const dot=(x,z,col,r)=>{g.fillStyle=col;g.beginPath();g.arc((x+H)*s,(z+H)*s,r,0,7);g.fill();};
   drops.forEach(d=>dot(d.g.position.x,d.g.position.z,'#ffd24a',2));mobs.forEach(m=>{if(!m.dead)dot(m.pos.x,m.pos.z,m.dummy?'#9a7a4a':m.boss?'#c07bff':'#ff4a4a',m.boss?4:2.2);});
@@ -182,7 +182,7 @@ buildPad=function(){const pad=$('#pad');pad.className='ring';const sk=i=>SK[S.sl
   const B=(k,x,y,sz,inner,nmT,lab)=>`<div class="sk${sz>70?' big':''}" data-k="${k}" style="right:${x}px;bottom:${y}px;width:${sz}px;height:${sz}px">${lab?`<b>${lab}</b>`:''}${inner}<span class="nm">${esc(nmT||'')}</span><i class="cd"></i></div>`;
   const r1=[[96,4],[90,62],[56,104],[4,112]];
   let h=B('J',0,0,88,'<em>🦶</em>','발차기','J');
-  [0,1,2,3].forEach(i=>{const s=sk(i);h+=B('UIOP'[i],r1[i][0],r1[i][1],56,s?skillIco(s):'<em>＋</em>',s?s.name:'','UIOP'[i]);});
+  [0,1,2,3].forEach(i=>{const s=sk(i);h+=B('UIOP'[i],r1[i][0],r1[i][1],58,s?`<em>${CATI[s.cat]||'✨'}</em><u>${esc(shortNm(s.name))}</u><s>MP${mpCost(s)}</s>`:'<em>＋</em><u>스킬 넣기</u>','','UIOP'[i]);});
   h+=B('K',154,0,52,'<em>'+(S.eq.weapon?(S.eq.weapon.wc==='gun'?'🔫':'⚔'):'👊')+'</em>',S.eq.weapon?nm(S.eq.weapon):'지르기','K');
   h+=B('L',152,58,48,'<em>🏹</em>',S.eq.bow?BOWTYPES[S.eq.bow.shot][0]:'활','L');
   h+=B('SP',112,112,46,'<em>💨</em>','구르기','␣');
@@ -192,9 +192,13 @@ buildPad=function(){const pad=$('#pad');pad.className='ring';const sk=i=>SK[S.sl
   if(S.eq.mount)h+=B('MT',104,166,46,'<em>🦊</em>',typeof KP!=='undefined'&&KP.riding?'내리기':'타기','');
   if(S.eq.summon)h+=B('SM',152,166,46,'<em>👻</em>',S.sumOn?'소환 해제':'소환','');
   pad.innerHTML=h;const au=pad.querySelector('[data-k=AU]');if(au)au.classList.toggle('on',AUTO.on);
-  pad.querySelectorAll('.sk').forEach(el=>{el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}if(k.length===1&&'UIOP'.includes(k)&&!S.slots['UIOP'.indexOf(k)]){openSkillBook();return;}press(k);});
+  pad.querySelectorAll('.sk').forEach(el=>{let lp=0;el.addEventListener('pointerdown',e=>{e.preventDefault();const k=el.dataset.k;if(k==='SH'){keys.Shift=true;return;}if(k.length===1&&'UIOP'.includes(k)&&!S.slots['UIOP'.indexOf(k)]){openSkillBook();return;}press(k);clearTimeout(lp);if('UIOPJ'.includes(k))lp=setTimeout(()=>{const id=k==='J'?nextJ():S.slots['UIOP'.indexOf(k)];toast(skillDesc(SK[id]),2600);},450);});el.addEventListener('pointerup',()=>clearTimeout(lp));
     el.addEventListener('pointerup',()=>{if(el.dataset.k==='SH')keys.Shift=false;});el.addEventListener('pointerleave',()=>{if(el.dataset.k==='SH')keys.Shift=false;});});};
 function openSkillBook(){openBag();}
+const CATI={kick:'🦶',trick:'🌀',acro:'🤸',weapon:'⚔',punch:'👊',magic:'✨',ult:'💥'};
+const shortNm=n=>String(n).replace(/\s*\(.*?\)\s*/g,'').replace(/\s+/g,'').slice(0,5);
+function skillDesc(sk){if(!sk)return'';const sh=[...new Set((sk.hits||[]).map(h=>SHAPE_KO[h.shape]))].join('·')||(sk.proj?'날아가는 탄':sk.strike?'적 위 낙뢰':sk.contact?'돌진 박치기':'');
+  return`<b style="color:${RAR[sk.rar].col}">${esc(sk.name)}</b> <span style="color:${RAR[sk.rar].col}">[${RAR[sk.rar].name}]</span><br>${CAT[sk.cat]?CAT[sk.cat].join(' '):''} · ${sh} ${skillRange(sk).toFixed(1)}칸<br>위력 ${Math.round(skillPower(sk)*100)} · 재사용 ${sk.cd||0}초 · MP ${mpCost(sk)}${sk.inv?' · 동작 중 무적':''}${sk.dash?' · 돌진':''}`;}
 /* ---------- 데미지 숫자: 회복 ---------- */
 document.head.insertAdjacentHTML('beforeend','<style>.ds-heal{color:#7aff9a;-webkit-text-stroke:1.5px #003a10;font-size:22px}</style>');
 /* ---------- 시작 키트 · 연결 ---------- */

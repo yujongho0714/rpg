@@ -57,7 +57,7 @@ THEMES.duel=Object.assign({},THEMES.end,{name:'환영 전장',fog:0x140c22,light
 /* ---------- 자동 사냥 (리니지라이크) ---------- */
 const AUTO={on:false,t:0};
 function autoTick(dt){if(!AUTO.on||P.dead||paused||MODE==='idle')return;AUTO.t-=dt;
-  const tg=mobs.filter(m=>!m.dead&&!m.dummy).sort((a,b)=>a.pos.distanceTo(P.pos)-b.pos.distanceTo(P.pos))[0];
+  const tg=mobs.filter(m=>!m.dead&&!m.dummy&&(MODE!=='world'||m.pos.distanceTo(P.pos)<18)).sort((a,b)=>a.pos.distanceTo(P.pos)-b.pos.distanceTo(P.pos))[0];
   const drop=drops[0];if(!tg&&drop){const to=drop.g.position.clone().setY(0).sub(P.pos);AUTO.dir={x:to.x,z:to.z};return;}
   if(!tg){if(stageClear&&portal){const to=portal.position.clone().sub(P.pos);AUTO.dir={x:to.x,z:to.z};}else AUTO.dir=null;return;}
   const d=tg.pos.distanceTo(P.pos);if(d>2+tg.radius){const to=tg.pos.clone().sub(P.pos);AUTO.dir={x:to.x,z:to.z};return;}AUTO.dir=null;
